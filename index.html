@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Disney Hitster Player</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <style>
+        body { background-color: #121212; color: white; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; text-align: center; display: flex; flex-direction: column; justify-content: center; height: 100vh; margin: 0; }
+        
+        /* Der riesige Play-Button */
+        #play-btn { 
+            background-color: #1ed760; 
+            border: none; 
+            padding: 30px 60px; 
+            font-size: 28px; 
+            font-weight: bold;
+            color: black; 
+            border-radius: 500px; 
+            cursor: pointer; 
+            box-shadow: 0 0 30px rgba(30, 215, 96, 0.4); 
+            transition: transform 0.1s;
+        }
+        #play-btn:active { transform: scale(0.95); }
+
+        #status { margin-top: 30px; color: #b3b3b3; font-size: 14px; }
+        
+        /* Der Auflösen-Button (erst unsichtbar) */
+        #reveal-btn { 
+            margin-top: 40px; 
+            background: transparent; 
+            border: 2px solid #535353; 
+            color: #fff; 
+            padding: 15px 30px; 
+            border-radius: 30px; 
+            font-size: 16px;
+            cursor: pointer;
+            display: none; 
+        }
+        
+        /* Die versteckte Lösung */
+        .hidden-info { display: none; margin-top: 40px; animation: fadeIn 1s; }
+        img { width: 250px; border-radius: 10px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); margin-top: 20px; }
+        h2 { margin: 20px 0 10px 0; font-size: 24px; }
+        h3 { margin: 0; color: #b3b3b3; font-weight: normal; }
+
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    </style>
+    <script src="https://sdk.scdn.co/spotify-player.js"></script>
+</head>
+<body>
+
+    <div id="controls">
+        <button id="play-btn">▶ SONG STARTEN</button>
+        <p id="status">Verbinde mit Spotify...</p>
+        <button id="reveal-btn" onclick="reveal()">Auflösen 🕵️‍♂️</button>
+    </div>
+
+    <div id="info" class="hidden-info">
+        <h2 id="track-name">Lade Titel...</h2>
+        <h3 id="artist-name">Lade Interpret...</h3>
+        <img id="album-art" src="" />
+    </div>
+
+    <script>
+        // --- HIER KOMMT SPÄTER DEINE ID REIN ---
+        // Wenn Spotify wieder geht: Einfach diese Zeile ändern!
+        const CLIENT_ID = 'PLATZHALTER_FUER_SPAETER'; 
+        // ---------------------------------------
+
+        const params = new URLSearchParams(window.location.search);
+        const trackId = params.get('track');
+        let player;
+        let deviceId;
+        let token;
+
+        // Authentifizierung
+        const hash = window.location.hash.substring(1).split('&').reduce(function (initial, item) {
+            if (item) {
+                var parts = item.split('=');
+                initial[parts[0]] = decodeURIComponent(parts[1]);
+            }
+            return initial;
+        }, {});
+        
+        window.location.hash = '';
+        token = hash.access_token;
+
+        // Wenn kein Token da ist, zur Spotify-Login-Seite schicken
+        if (!token) {
+            // Falls wir noch den Platzhalter haben, nichts tun (verhindert Fehler-Schleife beim Testen)
+            if(CLIENT_ID !== 'PLATZHALTER_FUER_SPAETER') {
+                const redirectUri = window.location.href.split('?')[0]; 
+                const scopes = 'streaming user-read-email user-read-private';
+                window.location = `https://accounts.spotify.com/authorize?client_id=${CLIENT_ID}&response_type=token&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(scopes)}`;
+            } else {
+                document.getElementById('status').innerText = "Warte auf Konfiguration (Client ID fehlt).";
+            }
+        } else {
+            // Token ist da, Player starten
+            window.onSpotifyWebPlaybackSDKReady = () => {
+                player = new Spotify.Player({
+                    name: 'Hitster Web Player',
+                    getOAuthToken: cb => { cb(token); }
+                });
+
+                player.addListener('ready', ({ device_id }) => {
+                    console.log('Ready with Device ID', device_id);
+                    deviceId = device_id;
+                    document.getElementById('status').innerText = "Bereit zum Abspielen!";
+                    
+                    document.getElementById('play-btn').onclick = function() {
+                        playSong(trackId);
+                    };
+                });
+
+                player.connect();
+            };
+        }
+
+        function playSong(id) {
+            if(!id) return alert("Fehler: Keine Song-ID im QR Code gefunden.");
+            if(!deviceId) return alert("Player noch nicht bereit. Warte kurz...");
+            
+            document.getElementById('status').innerText = "Lade Song...";
+            
+            // 1. Song abspielen
+            fetch(`https://api.spotify.com/v1/me/player/play?device_id=${deviceId}`, {
+                method: 'PUT',
+                body: JSON.stringify({ uris: [`spotify:track:${id}`] }),
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+            }).then(() => {
+                 document.getElementById('status').innerText = "Wiedergabe läuft...";
+                 document.getElementById('play-btn').style.display = 'none';
+                 document.getElementById('reveal-btn').style.display = 'inline-block';
+                 
+                 // 2. Infos im Hintergrund laden (für späteres Auflösen)
+                 fetch(`https://api.spotify.com/v1/tracks/${id}`, {
+                    headers: {'Authorization': `Bearer ${token}`}
+                 })
+                 .then(res => res.json())
+                 .then(data => {
+                     document.getElementById('track-name').innerText = data.name;
+                     document.getElementById('artist-name').innerText = data.artists[0].name;
+                     document.getElementById('album-art').src = data.album.images[0].url;
+                 });
+            });
+        }
+
+        function reveal() {
+            document.getElementById('controls').style.display = 'none'; // Buttons weg
+            document.getElementById('info').style.display = 'block';    // Lösung her
+        }
+    </script>
+</body>
+</html>
