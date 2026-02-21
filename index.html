@@ -7,7 +7,6 @@
         body { background-color: #121212; color: white; font-family: sans-serif; text-align: center; padding: 20px; margin: 0; }
         .btn { border: none; padding: 18px 10px; font-size: 16px; font-weight: bold; border-radius: 20px; cursor: pointer; margin: 8px 4px; transition: transform 0.1s; text-transform: uppercase; color: white; box-sizing: border-box; text-decoration: none; display: inline-block; }
         .btn-large { width: 92%; max-width: 300px; padding: 20px; font-size: 18px; display: none; }
-        .btn:active { transform: scale(0.95); }
         
         .btn-play { background-color: #1ed760 !important; }
         .btn-pause { background-color: #ff4444 !important; }
@@ -15,7 +14,6 @@
         
         #status { color: #1ed760; font-size: 16px; margin: 15px 0; font-weight: bold; min-height: 20px; }
         
-        /* FIX: Feste Höhe verhindert das Springen */
         #debug { background-color: #ffffff; color: #000000; font-size: 11px; margin-top: 30px; text-align: left; padding: 10px; border: 2px solid #ff0000; border-radius: 5px; font-family: monospace; display: block; position: relative; height: 185px; overflow: hidden; }
         #log-content { height: 140px; white-space: pre-wrap; word-break: break-all; overflow: hidden; }
         .debug-nav { display: flex; justify-content: space-between; align-items: center; position: absolute; bottom: 5px; left: 10px; right: 10px; border-top: 1px solid #ddd; padding-top: 5px; background: white; }
@@ -24,20 +22,20 @@
 </head>
 <body>
     <h3 style="margin-top: 10px; color: #555;">Disney Hitster Player</h3>
-    <div id="status">Initialisierung...</div>
+    <div id="status">System-Check...</div>
     
-    <a id="login-link" class="btn btn-large btn-play">Mit Spotify verbinden</a>
+    <a id="login-link" class="btn btn-large btn-play" style="display: none;">Mit Spotify verbinden</a>
     
     <div id="game-ui">
-        <button id="main-play-btn" class="btn btn-large btn-play">▶ SONG STARTEN</button>
+        <button id="main-play-btn" class="btn btn-large btn-play" style="display: none;">▶ SONG STARTEN</button>
         <div class="player-controls">
-            <button id="toggle-play" class="btn btn-large">PAUSE</button>
+            <button id="toggle-play" class="btn btn-large" style="display: none;">PAUSE</button>
             <button id="restart-btn" class="btn">🔄 NEUSTART</button>
         </div>
     </div>
 
     <div id="debug">
-        <div id="log-content">System-Start...</div>
+        <div id="log-content">Warte auf Initialisierung...</div>
         <div class="debug-nav">
             <button class="nav-btn" onclick="changePage(-1)">« ZURÜCK</button>
             <span id="page-info">S.1 / 1</span>
@@ -46,7 +44,7 @@
     </div>
 
     <script>
-        let allLogs = ["Log initialisiert."];
+        let allLogs = ["Log bereit."];
         let currentPage = 0;
         const pageSize = 10;
 
@@ -79,25 +77,29 @@
         const params = new URLSearchParams(window.location.search);
         let trackId = params.get('track') || localStorage.getItem('hitster_track');
 
+        // ID Reinigung
         if (params.get('track')) {
             trackId = params.get('track').split('&')[0].split('?')[0].replace(/[^a-zA-Z0-9]/g, '');
             localStorage.setItem('hitster_track', trackId);
-            log("Track: " + trackId);
+            log("Track geladen: " + trackId);
         }
 
+        // Token aus Hash lesen
         if (window.location.hash.includes("access_token")) {
             token = new URLSearchParams(window.location.hash.substring(1)).get('access_token');
             localStorage.setItem('hitster_token', token);
             window.history.replaceState(null, null, window.location.pathname + window.location.search);
-            log("Token geladen!");
+            log("Login-Token aktiv!");
         }
 
         if (!token) {
-            document.getElementById('status').innerText = "Bitte anmelden";
+            document.getElementById('status').innerText = "Anmeldung nötig";
             const loginLink = document.getElementById('login-link');
             const scopes = encodeURIComponent('user-modify-playback-state user-read-playback-state');
-            loginLink.href = `${AUTH_URL}?client_id=${CLIENT_ID}&response_type=token&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${scopes}`;
+            // Wir bauen den Link direkt als Attribut zusammen
+            loginLink.href = AUTH_URL + "?client_id=" + CLIENT_ID + "&response_type=token&redirect_uri=" + encodeURIComponent(redirectUri) + "&scope=" + scopes;
             loginLink.style.display = "inline-block";
+            log("Login-Link bereit.");
         } else {
             document.getElementById('status').innerText = "Bereit!";
             document.getElementById('main-play-btn').style.display = "block";
@@ -108,7 +110,7 @@
 
         function handleTogglePlay() {
             const action = isPlaying ? "pause" : "play";
-            fetch(`${API_URL}/me/player/${action}`, {
+            fetch(API_URL + "/me/player/" + action, {
                 method: 'PUT',
                 headers: { 'Authorization': 'Bearer ' + token }
             }).then(res => {
@@ -128,12 +130,12 @@
             btn.innerText = isPlaying ? "PAUSE" : "PLAY";
             btn.className = isPlaying ? "btn btn-large btn-pause" : "btn btn-large btn-play";
             btn.style.display = "inline-block";
-            document.getElementById('status').innerText = isPlaying ? "🎶 Musik läuft" : "⏸ Pausiert";
+            document.getElementById('status').innerText = isPlaying ? "🎶 Läuft" : "⏸ Pausiert";
         }
 
         function startSong() {
-            log("Starte Wiedergabe...");
-            fetch(`${API_URL}/me/player/play`, {
+            log("Sende Play...");
+            fetch(API_URL + "/me/player/play", {
                 method: 'PUT',
                 body: JSON.stringify({ uris: ["spotify:track:" + trackId] }),
                 headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
@@ -147,8 +149,10 @@
                     document.getElementById('main-play-btn').style.display = "none";
                     document.getElementById('restart-btn').style.display = "inline-block";
                     updatePlayButton();
+                    log("Musik gestartet!");
                 } else {
                     document.getElementById('status').innerText = "Spotify App öffnen!";
+                    log("Status: " + res.status);
                 }
             });
         }
