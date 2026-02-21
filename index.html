@@ -5,21 +5,24 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <style>
         body { background-color: #121212; color: white; font-family: sans-serif; text-align: center; padding: 20px; margin: 0; }
-        .btn { border: none; padding: 18px 20px; font-size: 16px; font-weight: bold; border-radius: 50px; cursor: pointer; margin: 10px 5px; width: 42%; max-width: 145px; transition: transform 0.1s; text-transform: uppercase; display: none; }
-        .btn-large { width: 85%; max-width: 300px; display: none; }
+        .btn { border: none; padding: 18px 10px; font-size: 14px; font-weight: bold; border-radius: 50px; cursor: pointer; margin: 8px 4px; width: 45%; max-width: 145px; transition: transform 0.1s; text-transform: uppercase; display: none; box-sizing: border-box; }
+        .btn-large { width: 92%; max-width: 300px; display: none; padding: 20px; font-size: 18px; }
         .btn:active { transform: scale(0.95); }
         
-        #play-btn { background-color: #1ed760; color: black; }
+        #main-play-btn, #resume-btn { background-color: #1ed760; color: black; }
         #stop-btn { background-color: #ff4444; color: white; }
+        #restart-btn { background-color: #555; color: white; }
         #vol-up, #vol-down { background-color: #333; color: white; }
-        #reveal-btn { background-color: transparent; border: 2px solid #555; color: white; width: 85%; max-width: 300px; }
+        #reveal-btn { background-color: transparent; border: 2px solid #1ed760; color: #1ed760; width: 92%; max-width: 300px; margin-top: 20px; }
         
         #status { color: #1ed760; font-size: 16px; margin: 15px 0; font-weight: bold; min-height: 20px; }
         .hidden-info { display: none; margin-top: 10px; animation: fadeIn 0.5s; }
         img { width: 250px; border-radius: 10px; margin: 10px 0; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
         
         .player-controls { display: flex; flex-wrap: wrap; justify-content: center; margin-top: 10px; }
-        #debug { background-color: #ffffff; color: #000000; font-size: 12px; margin-top: 30px; text-align: left; padding: 10px; border: 2px solid #ff0000; border-radius: 5px; white-space: pre-wrap; word-break: break-all; font-family: monospace; display: block; }
+        #debug { background-color: #ffffff; color: #000000; font-size: 11px; margin-top: 30px; text-align: left; padding: 10px; border: 2px solid #ff0000; border-radius: 5px; white-space: pre-wrap; word-break: break-all; font-family: monospace; display: block; }
+        h2 { font-size: 22px; margin: 10px 0 5px 0; }
+        h3.artist { color: #b3b3b3; font-weight: normal; margin: 0 0 15px 0; }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
     </style>
 </head>
@@ -30,17 +33,18 @@
     <button id="login-btn" class="btn btn-large" style="background-color: #1ed760; color: black;">Mit Spotify verbinden</button>
     
     <div id="game-ui">
-        <button id="main-play-btn" class="btn btn-large" style="background-color: #1ed760; color: black;">▶ SONG STARTEN</button>
+        <button id="main-play-btn" class="btn btn-large">▶ SONG STARTEN</button>
         
         <div id="info" class="hidden-info">
-            <h2 id="track-name"></h2>
-            <h3 id="artist-name" style="color:#b3b3b3; font-weight:normal;"></h3>
+            <h2 id="track-name">Song läuft...</h2>
+            <h3 class="artist" id="artist-name">Disney</h3>
             <img id="album-art" src="" />
         </div>
 
         <div class="player-controls" id="controls" style="display:none;">
-            <button id="play-btn" class="btn">▶ PLAY</button>
-            <button id="stop-btn" class="btn">⏸ PAUSE</button>
+            <button id="resume-btn" class="btn">▶ WEITER</button>
+            <button id="stop-btn" class="btn">⏸ STOP</button>
+            <button id="restart-btn" class="btn">🔄 NEUSTART</button>
             <button id="vol-down" class="btn">🔉 LEISER</button>
             <button id="vol-up" class="btn">🔊 LAUTER</button>
             <button id="reveal-btn" class="btn" onclick="reveal()">🕵️‍♂️ AUFLÖSEN</button>
@@ -51,7 +55,7 @@
 
     <script>
         // --- EINSTELLUNG ---
-        const SHOW_DEBUG = true; // Auf 'false' setzen zum Verstecken
+        const SHOW_DEBUG = true; // Auf 'false' setzen, wenn alles fertig ist
         // -------------------
 
         if (!SHOW_DEBUG) document.getElementById('debug').style.display = 'none';
@@ -75,7 +79,6 @@
             localStorage.setItem('hitster_track', trackId);
         }
 
-        // Login check
         let currentHash = window.location.hash.substring(1);
         if (currentHash.includes("access_token")) {
             token = new URLSearchParams(currentHash).get('access_token');
@@ -91,9 +94,10 @@
             document.getElementById('status').innerText = "Bereit!";
             document.getElementById('main-play-btn').style.display = "block";
             
-            document.getElementById('main-play-btn').onclick = () => playSong();
-            document.getElementById('play-btn').onclick = () => spotifyControl("play");
+            document.getElementById('main-play-btn').onclick = () => startFirstTime();
+            document.getElementById('resume-btn').onclick = () => spotifyControl("play");
             document.getElementById('stop-btn').onclick = () => spotifyControl("pause");
+            document.getElementById('restart-btn').onclick = () => startFirstTime();
             document.getElementById('vol-up').onclick = () => adjustVolume(10);
             document.getElementById('vol-down').onclick = () => adjustVolume(-10);
         }
@@ -103,7 +107,9 @@
                 method: 'PUT',
                 headers: { 'Authorization': 'Bearer ' + token }
             }).then(res => {
-                if(res.status === 204) document.getElementById('status').innerText = action === "play" ? "🎶 Musik läuft" : "⏸ Pausiert";
+                if(res.status === 204) {
+                    document.getElementById('status').innerText = action === "play" ? "🎶 Läuft" : "⏸ Pausiert";
+                }
             });
         }
 
@@ -115,31 +121,31 @@
             });
         }
 
-        function playSong() {
+        function startFirstTime() {
             fetch(`${API_URL}/me/player/play`, {
                 method: 'PUT',
                 body: JSON.stringify({ uris: ["spotify:track:" + trackId] }),
                 headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
             }).then(res => {
                 if (res.status === 204) {
-                    document.getElementById('main-play-btn').style.display = "none";
-                    document.getElementById('controls').style.display = "flex";
-                    document.getElementById('play-btn').style.display = "block";
-                    document.getElementById('stop-btn').style.display = "block";
-                    document.getElementById('vol-up').style.display = "block";
-                    document.getElementById('vol-down').style.display = "block";
-                    document.getElementById('reveal-btn').style.display = "block";
+                    showPlayer();
                     document.getElementById('status').innerText = "🎶 Musik läuft";
-                    
-                    fetch(`${API_URL}/tracks/${trackId}`, { headers: {'Authorization': 'Bearer ' + token} })
-                    .then(r => r.json()).then(data => {
-                        document.getElementById('album-art').src = data.album.images[0].url;
-                        document.getElementById('info').style.display = "block";
-                        document.getElementById('track-name').innerText = "Titel wird gesucht...";
-                    });
                 } else {
                     document.getElementById('status').innerText = "Spotify App am Handy öffnen!";
                 }
+            });
+        }
+
+        function showPlayer() {
+            document.getElementById('main-play-btn').style.display = "none";
+            document.getElementById('controls').style.display = "flex";
+            const btns = document.querySelectorAll('.player-controls .btn');
+            btns.forEach(b => b.style.display = "inline-block");
+            
+            fetch(`${API_URL}/tracks/${trackId}`, { headers: {'Authorization': 'Bearer ' + token} })
+            .then(r => r.json()).then(data => {
+                document.getElementById('album-art').src = data.album.images[0].url;
+                document.getElementById('info').style.display = "block";
             });
         }
 
@@ -149,6 +155,7 @@
                 document.getElementById('track-name').innerText = data.name;
                 document.getElementById('artist-name').innerText = data.artists[0].name;
                 document.getElementById('status').innerText = "Gelöst!";
+                document.getElementById('reveal-btn').style.display = "none";
             });
         }
     </script>
