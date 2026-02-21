@@ -15,7 +15,7 @@
         
         #status { color: #1ed760; font-size: 16px; margin: 15px 0; font-weight: bold; min-height: 20px; }
         
-        /* FIX: UI springt nicht mehr durch feste Höhe des Logs */
+        /* FIX: Feste Höhe verhindert das Hüpfen der UI */
         #debug { background-color: #ffffff; color: #000000; font-size: 11px; margin-top: 30px; text-align: left; padding: 10px; border: 2px solid #ff0000; border-radius: 5px; font-family: monospace; display: block; position: relative; height: 185px; overflow: hidden; }
         #log-content { height: 140px; white-space: pre-wrap; word-break: break-all; overflow: hidden; }
         .debug-nav { display: flex; justify-content: space-between; align-items: center; position: absolute; bottom: 5px; left: 10px; right: 10px; border-top: 1px solid #ddd; padding-top: 5px; background: white; }
@@ -47,7 +47,6 @@
     </div>
 
     <script>
-        // Log & Pagination Setup
         let allLogs = ["System initialisiert."];
         let currentPage = 0;
         const pageSize = 10;
@@ -71,7 +70,6 @@
             renderLogs();
         }
 
-        // Spotify Konstanten
         const CLIENT_ID = '6959567a76bc4366b778ec6a5b853a91'; 
         const AUTH_URL = atob("aHR0cHM6Ly9hY2NvdW50cy5zcG90aWZ5LmNvbS9hdXRob3JpemU=");
         const API_URL = atob("aHR0cHM6Ly9hcGkuc3BvdGlmeS5jb20vdjE=");
@@ -82,14 +80,12 @@
         const params = new URLSearchParams(window.location.search);
         let trackId = params.get('track') || localStorage.getItem('hitster_track');
 
-        // Track-ID Reinigung
         if (params.get('track')) {
             trackId = params.get('track').split('&')[0].split('?')[0].replace(/[^a-zA-Z0-9]/g, '');
             localStorage.setItem('hitster_track', trackId);
             log("ID erkannt: " + trackId);
         }
 
-        // Token aus URL fischen
         if (window.location.hash.includes("access_token")) {
             token = new URLSearchParams(window.location.hash.substring(1)).get('access_token');
             localStorage.setItem('hitster_token', token);
@@ -97,14 +93,18 @@
             log("Login-Token gespeichert.");
         }
 
-        // Login Logik
         if (!token) {
             document.getElementById('login-btn').style.display = "block";
-            document.getElementById('login-btn').onclick = function() {
+            document.getElementById('login-btn').onclick = function(e) {
+                e.preventDefault();
                 log("Verbindung wird hergestellt...");
                 const scopes = encodeURIComponent('user-modify-playback-state user-read-playback-state');
                 const fullUrl = AUTH_URL + "?client_id=" + CLIENT_ID + "&response_type=token&redirect_uri=" + encodeURIComponent(redirectUri) + "&scope=" + scopes;
-                window.location.href = fullUrl; // Stabiler als .assign()
+                
+                // Kurze Verzögerung, damit der Log-Eintrag sichtbar wird
+                setTimeout(() => {
+                    window.location.href = fullUrl;
+                }, 100);
             };
         } else {
             document.getElementById('status').innerText = "Bereit!";
