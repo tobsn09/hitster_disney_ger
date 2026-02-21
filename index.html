@@ -6,20 +6,20 @@
     <style>
         body { background-color: #121212; color: white; font-family: sans-serif; text-align: center; padding: 20px; margin: 0; }
         .btn { border: none; padding: 18px 10px; font-size: 14px; font-weight: bold; border-radius: 15px; cursor: pointer; margin: 8px 4px; transition: transform 0.1s; text-transform: uppercase; color: white; box-sizing: border-box; }
-        .btn-large { width: 92%; max-width: 300px; display: none; padding: 20px; font-size: 18px; }
+        .btn-large { width: 92%; max-width: 300px; padding: 20px; font-size: 18px; display: none; }
         .btn:active { transform: scale(0.95); }
         
-        /* Play/Pause Styling */
+        /* Play/Pause Button Farben */
         .btn-play { background-color: #1ed760; color: white !important; width: 92%; max-width: 300px; }
         .btn-pause { background-color: #ff4444; color: white !important; width: 92%; max-width: 300px; }
         
-        #restart-btn { background-color: #555; width: 92%; max-width: 300px; }
+        #restart-btn { background-color: #555; width: 92%; max-width: 300px; display: none; }
         #reveal-btn { background-color: transparent; border: 2px solid #1ed760; color: #1ed760; width: 92%; max-width: 300px; margin-top: 20px; display: none; }
         
-        /* Slider Styling */
-        .volume-container { width: 92%; max-width: 300px; margin: 20px auto; display: none; }
-        .slider { -webkit-appearance: none; width: 100%; height: 10px; border-radius: 5px; background: #333; outline: none; margin-top: 10px; }
-        .slider::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 20px; height: 20px; border-radius: 50%; background: #1ed760; cursor: pointer; }
+        /* Volume Slider */
+        .volume-container { width: 92%; max-width: 300px; margin: 25px auto; display: none; }
+        .slider { -webkit-appearance: none; width: 100%; height: 12px; border-radius: 10px; background: #333; outline: none; }
+        .slider::-webkit-slider-thumb { -webkit-appearance: none; width: 24px; height: 24px; border-radius: 50%; background: #1ed760; cursor: pointer; border: 2px solid white; }
 
         #status { color: #1ed760; font-size: 16px; margin: 15px 0; font-weight: bold; min-height: 20px; }
         #info-container { display: none; margin-top: 10px; }
@@ -44,11 +44,11 @@
         </div>
 
         <div id="controls">
-            <button id="toggle-play" class="btn btn-pause">PAUSE</button>
+            <button id="toggle-play" class="btn btn-pause" style="display:none;">PAUSE</button>
             <button id="restart-btn" class="btn">🔄 NEUSTART</button>
             
             <div class="volume-container" id="vol-ui">
-                <label>🔈 Lautstärke 🔊</label><br>
+                <label style="font-size: 14px; color: #888;">LAUTSTÄRKE</label><br>
                 <input type="range" min="0" max="100" value="50" class="slider" id="vol-slider">
             </div>
             
@@ -59,12 +59,16 @@
     <div id="debug">System-Log:<br></div>
 
     <script>
+        // --- EINSTELLUNG ---
         const SHOW_DEBUG = true; 
+        // -------------------
+
         if (!SHOW_DEBUG) document.getElementById('debug').style.display = 'none';
         function log(msg) { if (SHOW_DEBUG) document.getElementById('debug').innerHTML += msg + "<br>"; }
 
         const CLIENT_ID = '6959567a76bc4366b778ec6a5b853a91'; 
-        const API_URL = "https://api.spotify.com/v1";
+        const AUTH_URL = atob("aHR0cHM6Ly9hY2NvdW50cy5zcG90aWZ5LmNvbS9hdXRob3JpemU=");
+        const API_URL = atob("aHR0cHM6Ly9hcGkuc3BvdGlmeS5jb20vdjE=");
         const redirectUri = "https://tobsn09.github.io/hitster_disney_ger/";
 
         let isPlaying = false;
@@ -82,7 +86,7 @@
             document.getElementById('login-btn').style.display = "block";
             document.getElementById('login-btn').onclick = () => {
                 const scope = encodeURIComponent('user-modify-playback-state user-read-playback-state');
-                window.location.assign(`https://accounts.spotify.com/authorize?client_id=${CLIENT_ID}&response_type=token&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${scope}`);
+                window.location.assign(AUTH_URL + "?client_id=" + CLIENT_ID + "&response_type=token&redirect_uri=" + encodeURIComponent(redirectUri) + "&scope=" + scope);
             };
         } else {
             document.getElementById('status').innerText = "Bereit!";
@@ -92,7 +96,7 @@
             document.getElementById('restart-btn').onclick = () => startSong();
             
             document.getElementById('vol-slider').oninput = function() {
-                fetch(`${API_URL}/me/player/volume?volume_percent=${this.value}`, {
+                fetch(API_URL + "/me/player/volume?volume_percent=" + this.value, {
                     method: 'PUT',
                     headers: { 'Authorization': 'Bearer ' + token }
                 });
@@ -101,7 +105,7 @@
 
         function handleTogglePlay() {
             const action = isPlaying ? "pause" : "play";
-            fetch(`${API_URL}/me/player/${action}`, {
+            fetch(API_URL + "/me/player/" + action, {
                 method: 'PUT',
                 headers: { 'Authorization': 'Bearer ' + token }
             }).then(res => {
@@ -117,16 +121,53 @@
             if (isPlaying) {
                 btn.innerText = "PAUSE";
                 btn.className = "btn btn-pause";
+                btn.style.display = "inline-block";
                 document.getElementById('status').innerText = "🎶 Musik läuft";
             } else {
                 btn.innerText = "PLAY";
                 btn.className = "btn btn-play";
+                btn.style.display = "inline-block";
                 document.getElementById('status').innerText = "⏸ Pausiert";
             }
         }
 
         function startSong() {
-            fetch(`${API_URL}/me/player/play`, {
+            log("Sende Play für: " + trackId);
+            fetch(API_URL + "/me/player/play", {
                 method: 'PUT',
                 body: JSON.stringify({ uris: ["spotify:track:" + trackId] }),
-                headers: { 'Content-Type': 'application/
+                headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+            }).then(res => {
+                log("Antwort Play: " + res.status);
+                if (res.ok || res.status === 204) {
+                    isPlaying = true;
+                    document.getElementById('main-play-btn').style.display = "none";
+                    document.getElementById('info-container').style.display = "block";
+                    document.getElementById('vol-ui').style.display = "block";
+                    document.getElementById('restart-btn').style.display = "inline-block";
+                    document.getElementById('reveal-btn').style.display = "inline-block";
+                    updatePlayButton();
+                    
+                    fetch(API_URL + "/tracks/" + trackId, { headers: {'Authorization': 'Bearer ' + token} })
+                    .then(r => r.json()).then(data => {
+                        document.getElementById('album-art').src = data.album.images[0].url;
+                    });
+                } else {
+                    document.getElementById('status').innerText = "Bitte Spotify-App öffnen!";
+                }
+            });
+        }
+
+        function reveal() {
+            fetch(API_URL + "/tracks/" + trackId, { headers: {'Authorization': 'Bearer ' + token} })
+            .then(res => res.json()).then(data => {
+                document.getElementById('track-name').innerText = data.name;
+                document.getElementById('artist-name').innerText = data.artists[0].name;
+                document.getElementById('album-art').style.visibility = "visible";
+                document.getElementById('status').innerText = "Gelöst!";
+                document.getElementById('reveal-btn').style.display = "none";
+            });
+        }
+    </script>
+</body>
+</html>
