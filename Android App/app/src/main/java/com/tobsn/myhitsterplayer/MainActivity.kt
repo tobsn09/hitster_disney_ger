@@ -10,46 +10,47 @@ import com.google.mlkit.vision.codescanner.GmsBarcodeScannerOptions
 import com.google.mlkit.vision.codescanner.GmsBarcodeScanning
 
 class MainActivity : AppCompatActivity() {
-
     private lateinit var myWebView: WebView
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        // Statusleiste ausblenden
         window.setDecorFitsSystemWindows(false)
         window.insetsController?.hide(WindowInsets.Type.statusBars())
 
         myWebView = findViewById(R.id.webview)
         setupWebView()
 
-        // Scanner-Schnittstelle registrieren
         myWebView.addJavascriptInterface(WebAppInterface(), "AndroidBridge")
-
-        val intentUri = intent.data
-        myWebView.loadUrl(intentUri?.toString() ?: "https://tobsn09.github.io/hitster_disney_ger/")
+        myWebView.loadUrl("https://tobsn09.github.io/hitster_disney_ger/")
     }
 
     private fun setupWebView() {
         val settings = myWebView.settings
         settings.javaScriptEnabled = true
-        settings.userAgentString = "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Mobile Safari/537.36"
         settings.domStorageEnabled = true
+        settings.databaseEnabled = true
         settings.mediaPlaybackRequiresUserGesture = false
-        myWebView.webViewClient = WebViewClient()
+
+        // DIESE ZEILE TARNT DIE APP ALS CHROME BROWSER (Wichtig für Spotify Login!)
+        settings.userAgentString = "Mozilla/5.0 (Linux; Android 13; SM-S928B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Mobile Safari/537.36"
+
+        myWebView.webViewClient = object : WebViewClient() {
+            override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
+                return false
+            }
+        }
     }
 
     inner class WebAppInterface {
         @JavascriptInterface
         fun startScanner() {
-            val options = GmsBarcodeScannerOptions.Builder()
-                .setBarcodeFormats(Barcode.FORMAT_QR_CODE)
-                .build()
-            val scanner = GmsBarcodeScanning.getClient(this@MainActivity, options)
-            scanner.startScan().addOnSuccessListener { barcode ->
-                barcode.rawValue?.let { if (it.contains("github.io")) runOnUiThread { myWebView.loadUrl(it) } }
-            }
+            val options = GmsBarcodeScannerOptions.Builder().setBarcodeFormats(Barcode.FORMAT_QR_CODE).build()
+            GmsBarcodeScanning.getClient(this@MainActivity, options).startScan()
+                .addOnSuccessListener { barcode ->
+                    barcode.rawValue?.let { if (it.contains("github.io")) runOnUiThread { myWebView.loadUrl(it) } }
+                }
         }
     }
 }
