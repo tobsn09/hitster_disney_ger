@@ -15,7 +15,6 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        // Fullscreen Modus
         window.setDecorFitsSystemWindows(false)
         window.insetsController?.hide(WindowInsets.Type.statusBars())
 
@@ -26,7 +25,7 @@ class MainActivity : AppCompatActivity() {
         settings.databaseEnabled = true
         settings.mediaPlaybackRequiresUserGesture = false
 
-        // S24 Ultra Chrome-Identität für stabilere Logins
+        // S24 Ultra Tarnung für stabilen Redirect
         settings.userAgentString = "Mozilla/5.0 (Linux; Android 14; SM-S928B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Mobile Safari/537.36"
 
         myWebView.addJavascriptInterface(WebAppInterface(), "AndroidBridge")
