@@ -15,9 +15,9 @@
         
         #status { color: #1ed760; font-size: 16px; margin: 15px 0; font-weight: bold; min-height: 20px; }
         
-        /* Stabilisierung: Log-Bereich mit fester Höhe verhindert Hüpfen */
-        #debug { background-color: #ffffff; color: #000000; font-size: 11px; margin-top: 30px; text-align: left; padding: 10px; border: 2px solid #ff0000; border-radius: 5px; font-family: monospace; display: block; position: relative; height: 180px; overflow: hidden; }
-        #log-content { height: 135px; white-space: pre-wrap; word-break: break-all; overflow: hidden; }
+        /* FIX: UI springt nicht mehr durch feste Höhe des Logs */
+        #debug { background-color: #ffffff; color: #000000; font-size: 11px; margin-top: 30px; text-align: left; padding: 10px; border: 2px solid #ff0000; border-radius: 5px; font-family: monospace; display: block; position: relative; height: 185px; overflow: hidden; }
+        #log-content { height: 140px; white-space: pre-wrap; word-break: break-all; overflow: hidden; }
         .debug-nav { display: flex; justify-content: space-between; align-items: center; position: absolute; bottom: 5px; left: 10px; right: 10px; border-top: 1px solid #ddd; padding-top: 5px; background: white; }
         .nav-btn { background: #eee; border: 1px solid #ccc; padding: 4px 10px; cursor: pointer; font-size: 10px; border-radius: 5px; color: #333; font-weight: bold; }
     </style>
@@ -38,17 +38,17 @@
     </div>
 
     <div id="debug">
-        <div id="log-content">Warte auf Aktion...</div>
+        <div id="log-content">Warte auf Initialisierung...</div>
         <div class="debug-nav">
             <button class="nav-btn" onclick="changePage(-1)">« ZURÜCK</button>
-            <span id="page-info" style="font-size: 10px;">S.1 / 1</span>
+            <span id="page-info">S.1 / 1</span>
             <button class="nav-btn" onclick="changePage(1)">VOR »</button>
         </div>
     </div>
 
     <script>
         // Log & Pagination Setup
-        let allLogs = ["System initialisiert..."];
+        let allLogs = ["System initialisiert."];
         let currentPage = 0;
         const pageSize = 10;
 
@@ -71,6 +71,7 @@
             renderLogs();
         }
 
+        // Spotify Konstanten
         const CLIENT_ID = '6959567a76bc4366b778ec6a5b853a91'; 
         const AUTH_URL = atob("aHR0cHM6Ly9hY2NvdW50cy5zcG90aWZ5LmNvbS9hdXRob3JpemU=");
         const API_URL = atob("aHR0cHM6Ly9hcGkuc3BvdGlmeS5jb20vdjE=");
@@ -81,22 +82,29 @@
         const params = new URLSearchParams(window.location.search);
         let trackId = params.get('track') || localStorage.getItem('hitster_track');
 
+        // Track-ID Reinigung
         if (params.get('track')) {
             trackId = params.get('track').split('&')[0].split('?')[0].replace(/[^a-zA-Z0-9]/g, '');
             localStorage.setItem('hitster_track', trackId);
+            log("ID erkannt: " + trackId);
         }
 
+        // Token aus URL fischen
         if (window.location.hash.includes("access_token")) {
             token = new URLSearchParams(window.location.hash.substring(1)).get('access_token');
             localStorage.setItem('hitster_token', token);
             window.history.replaceState(null, null, window.location.pathname + window.location.search);
+            log("Login-Token gespeichert.");
         }
 
+        // Login Logik
         if (!token) {
             document.getElementById('login-btn').style.display = "block";
-            document.getElementById('login-btn').onclick = () => {
+            document.getElementById('login-btn').onclick = function() {
                 log("Verbindung wird hergestellt...");
-                window.location.assign(AUTH_URL + "?client_id=" + CLIENT_ID + "&response_type=token&redirect_uri=" + encodeURIComponent(redirectUri) + "&scope=user-modify-playback-state%20user-read-playback-state");
+                const scopes = encodeURIComponent('user-modify-playback-state user-read-playback-state');
+                const fullUrl = AUTH_URL + "?client_id=" + CLIENT_ID + "&response_type=token&redirect_uri=" + encodeURIComponent(redirectUri) + "&scope=" + scopes;
+                window.location.href = fullUrl; // Stabiler als .assign()
             };
         } else {
             document.getElementById('status').innerText = "Bereit!";
@@ -112,7 +120,11 @@
                 method: 'PUT',
                 headers: { 'Authorization': 'Bearer ' + token }
             }).then(res => {
-                if(res.status === 401) { localStorage.removeItem('hitster_token'); location.reload(); }
+                if(res.status === 401) { 
+                    log("Token abgelaufen. Neuladen...");
+                    localStorage.removeItem('hitster_token'); 
+                    location.reload(); 
+                }
                 if(res.ok || res.status === 204) {
                     isPlaying = !isPlaying;
                     updatePlayButton();
@@ -129,20 +141,25 @@
         }
 
         function startSong() {
-            log("Starte Song...");
+            log("Anfrage an Spotify...");
             fetch(`${API_URL}/me/player/play`, {
                 method: 'PUT',
                 body: JSON.stringify({ uris: ["spotify:track:" + trackId] }),
                 headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
             }).then(res => {
-                if (res.status === 401) { localStorage.removeItem('hitster_token'); location.reload(); }
+                if (res.status === 401) { 
+                    localStorage.removeItem('hitster_token'); 
+                    location.reload(); 
+                }
                 if (res.ok || res.status === 204) {
                     isPlaying = true;
                     document.getElementById('main-play-btn').style.display = "none";
                     document.getElementById('restart-btn').style.display = "inline-block";
                     updatePlayButton();
+                    log("Wiedergabe gestartet.");
                 } else {
                     document.getElementById('status').innerText = "Spotify App öffnen!";
+                    log("Fehler: " + res.status);
                 }
             });
         }
