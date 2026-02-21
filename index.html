@@ -7,13 +7,10 @@
         body { background-color: #121212; color: white; font-family: sans-serif; text-align: center; padding: 20px; margin: 0; }
         .btn { border: none; padding: 18px 10px; font-size: 16px; font-weight: bold; border-radius: 20px; cursor: pointer; margin: 8px 4px; transition: transform 0.1s; text-transform: uppercase; color: white; box-sizing: border-box; text-decoration: none; display: inline-block; }
         .btn-large { width: 92%; max-width: 300px; padding: 20px; font-size: 18px; display: none; }
-        
         .btn-play { background-color: #1ed760 !important; }
         .btn-pause { background-color: #ff4444 !important; }
         #restart-btn { background-color: #555; width: 92%; max-width: 300px; display: none; }
-        
         #status { color: #1ed760; font-size: 16px; margin: 15px 0; font-weight: bold; min-height: 20px; }
-        
         #debug { background-color: #ffffff; color: #000000; font-size: 11px; margin-top: 30px; text-align: left; padding: 10px; border: 2px solid #ff0000; border-radius: 5px; font-family: monospace; display: block; position: relative; height: 185px; overflow: hidden; }
         #log-content { height: 140px; white-space: pre-wrap; word-break: break-all; overflow: hidden; }
         .debug-nav { display: flex; justify-content: space-between; align-items: center; position: absolute; bottom: 5px; left: 10px; right: 10px; border-top: 1px solid #ddd; padding-top: 5px; background: white; }
@@ -35,7 +32,7 @@
     </div>
 
     <div id="debug">
-        <div id="log-content">Warte auf Initialisierung...</div>
+        <div id="log-content">Initialisiere...</div>
         <div class="debug-nav">
             <button class="nav-btn" onclick="changePage(-1)">« ZURÜCK</button>
             <span id="page-info">S.1 / 1</span>
@@ -62,8 +59,7 @@
         }
 
         function changePage(dir) {
-            const maxPage = Math.ceil(allLogs.length / pageSize) - 1;
-            currentPage = Math.max(0, Math.min(maxPage, currentPage + dir));
+            currentPage = Math.max(0, Math.min(Math.ceil(allLogs.length / pageSize) - 1, currentPage + dir));
             renderLogs();
         }
 
@@ -81,22 +77,22 @@
         if (params.get('track')) {
             trackId = params.get('track').split('&')[0].split('?')[0].replace(/[^a-zA-Z0-9]/g, '');
             localStorage.setItem('hitster_track', trackId);
-            log("Track geladen: " + trackId);
+            log("Track: " + trackId);
         }
 
-        // Token aus Hash lesen
+        // Token aus URL
         if (window.location.hash.includes("access_token")) {
             token = new URLSearchParams(window.location.hash.substring(1)).get('access_token');
             localStorage.setItem('hitster_token', token);
             window.history.replaceState(null, null, window.location.pathname + window.location.search);
-            log("Login-Token aktiv!");
+            log("Token aktiv!");
         }
 
         if (!token) {
-            document.getElementById('status').innerText = "Anmeldung nötig";
+            document.getElementById('status').innerText = "Anmeldung erforderlich";
             const loginLink = document.getElementById('login-link');
+            // FIX: Wir stellen sicher, dass alle Parameter absolut korrekt an Spotify gehen
             const scopes = encodeURIComponent('user-modify-playback-state user-read-playback-state');
-            // Wir bauen den Link direkt als Attribut zusammen
             loginLink.href = AUTH_URL + "?client_id=" + CLIENT_ID + "&response_type=token&redirect_uri=" + encodeURIComponent(redirectUri) + "&scope=" + scopes;
             loginLink.style.display = "inline-block";
             log("Login-Link bereit.");
@@ -114,10 +110,7 @@
                 method: 'PUT',
                 headers: { 'Authorization': 'Bearer ' + token }
             }).then(res => {
-                if(res.status === 401) { 
-                    localStorage.removeItem('hitster_token'); 
-                    location.reload(); 
-                }
+                if(res.status === 401) { localStorage.removeItem('hitster_token'); location.reload(); }
                 if(res.ok || res.status === 204) {
                     isPlaying = !isPlaying;
                     updatePlayButton();
@@ -130,7 +123,7 @@
             btn.innerText = isPlaying ? "PAUSE" : "PLAY";
             btn.className = isPlaying ? "btn btn-large btn-pause" : "btn btn-large btn-play";
             btn.style.display = "inline-block";
-            document.getElementById('status').innerText = isPlaying ? "🎶 Läuft" : "⏸ Pausiert";
+            document.getElementById('status').innerText = isPlaying ? "🎶 Musik läuft" : "⏸ Pausiert";
         }
 
         function startSong() {
@@ -140,19 +133,15 @@
                 body: JSON.stringify({ uris: ["spotify:track:" + trackId] }),
                 headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
             }).then(res => {
-                if (res.status === 401) { 
-                    localStorage.removeItem('hitster_token'); 
-                    location.reload(); 
-                }
+                if (res.status === 401) { localStorage.removeItem('hitster_token'); location.reload(); }
                 if (res.ok || res.status === 204) {
                     isPlaying = true;
                     document.getElementById('main-play-btn').style.display = "none";
                     document.getElementById('restart-btn').style.display = "inline-block";
                     updatePlayButton();
-                    log("Musik gestartet!");
                 } else {
                     document.getElementById('status').innerText = "Spotify App öffnen!";
-                    log("Status: " + res.status);
+                    log("Fehler: " + res.status);
                 }
             });
         }
