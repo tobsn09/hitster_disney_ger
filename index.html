@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <style>
         body { background-color: #121212; color: white; font-family: sans-serif; text-align: center; padding: 20px; }
-        .btn { background-color: #1ed760; border: none; padding: 20px 40px; font-size: 20px; font-weight: bold; color: black; border-radius: 50px; cursor: pointer; display: none; margin: 20px auto; text-decoration: none; width: 80%; max-width: 300px; box-sizing: border-box; }
+        .btn { background-color: #1ed760; border: none; padding: 20px 40px; font-size: 20px; font-weight: bold; color: black; border-radius: 50px; cursor: pointer; display: none; margin: 20px auto; width: 80%; max-width: 300px; }
         #status { color: #1ed760; font-size: 18px; margin-top: 20px; font-weight: bold;}
         #reveal-btn { background: transparent; border: 2px solid #555; color: #fff; padding: 15px 30px; border-radius: 30px; display: none; margin: 20px auto; }
         .hidden-info { display: none; margin-top: 20px; }
@@ -18,7 +18,7 @@
     <h3 style="margin-top: 10px;">Disney Hitster</h3>
     <p id="status">Lade System...</p>
     
-    <a href="#" id="login-link" class="btn">Mit Spotify verbinden</a>
+    <button id="login-btn" class="btn">Mit Spotify verbinden</button>
     <button id="play-btn" class="btn">▶ PLAY</button>
     <button id="reveal-btn" onclick="reveal()">Auflösen</button>
 
@@ -42,54 +42,53 @@
             const AUTH_URL = atob("aHR0cHM6Ly9hY2NvdW50cy5zcG90aWZ5LmNvbS9hdXRob3JpemU=");
             const API_URL = atob("aHR0cHM6Ly9hcGkuc3BvdGlmeS5jb20vdjE=");
 
-            // Exakte Adresse OHNE Schnickschnack am Ende (für Spotify zwingend nötig)
-            const redirectUri = window.location.origin + window.location.pathname;
+            // HIER IST DEINE ADRESSE JETZT FEST VERANKERT (Slash am Ende ist extrem wichtig!)
+            const redirectUri = "https://tobsn09.github.io/hitster_disney_ger/";
             log("2. Redirect URI: " + redirectUri);
 
-            // Song-ID auslesen
             const params = new URLSearchParams(window.location.search);
             let trackId = params.get('track');
 
-            // Speichern/Laden, um Login-Sprung zu überleben
             if (trackId) {
                 localStorage.setItem('hitster_track', trackId);
             } else {
                 trackId = localStorage.getItem('hitster_track');
-                if (trackId === "null") trackId = null; // Fix für alte Fehleinträge
+                if (trackId === "null") trackId = null; 
             }
-            log("3. Aktuelle Song-ID: " + trackId);
+            log("3. Track-ID: " + trackId);
 
-            // Token suchen
             let token = null;
             let currentHash = window.location.hash.substring(1);
 
             if (currentHash) {
                 const hashParams = new URLSearchParams(currentHash);
                 token = hashParams.get('access_token');
-                if (token) log("4. Token erfolgreich empfangen!");
-                
-                // Wir löschen das "#" sauber aus der URL, ohne die Seite neu zu laden
+                if (token) log("4. Token vorhanden!");
                 window.history.replaceState(null, null, window.location.pathname + window.location.search);
             }
 
             if (!token) {
-                log("5. Kein Token. Zeige Login-Button.");
+                log("5. Zeige Login-Button...");
                 const scopes = 'user-modify-playback-state user-read-playback-state';
                 const fullAuthUrl = AUTH_URL + "?client_id=" + CLIENT_ID + "&response_type=token&redirect_uri=" + encodeURIComponent(redirectUri) + "&scope=" + encodeURIComponent(scopes);
                 
                 document.getElementById('status').innerText = "Bitte anmelden";
-                let loginLink = document.getElementById('login-link');
-                loginLink.href = fullAuthUrl;
-                loginLink.style.display = "inline-block";
+                let loginBtn = document.getElementById('login-btn');
+                loginBtn.style.display = "inline-block";
+                
+                loginBtn.onclick = function() {
+                    log("-> Klick erkannt! Leite erzwingend weiter...");
+                    window.location.assign(fullAuthUrl);
+                };
             } else {
-                log("5. Wir sind eingeloggt!");
+                log("5. Eingeloggt! Bereit.");
                 document.getElementById('status').innerText = "Bereit für Hitster!";
                 let playBtn = document.getElementById('play-btn');
                 playBtn.style.display = "inline-block";
                 
                 playBtn.onclick = function() {
                     log("-> PLAY geklickt.");
-                    if(!trackId) return alert("Fehler: Keine Song-ID gefunden. Bitte QR-Karte scannen!");
+                    if(!trackId) return alert("Fehler: Keine Song-ID gefunden!");
                     
                     document.getElementById('status').innerText = "Starte Wiedergabe...";
                     playBtn.style.display = "none";
@@ -102,9 +101,8 @@
                             'Authorization': 'Bearer ' + token
                         },
                     }).then(response => {
-                        log("Status der Wiedergabe: " + response.status);
                         if (response.status === 404 || response.status === 403) {
-                            document.getElementById('status').innerText = "Bitte öffne kurz die Spotify-App auf dem Handy!";
+                            document.getElementById('status').innerText = "Bitte Spotify-App öffnen!";
                             playBtn.style.display = "inline-block"; 
                             return;
                         }
