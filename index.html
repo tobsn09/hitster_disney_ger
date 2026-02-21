@@ -5,23 +5,23 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <style>
         body { 
-            background-color: #121212; 
-            /* Dynamische Hintergrund-Anpassung */
-            background-image: var(--bg-image);
-            background-size: cover;         /* Bild füllt den Screen komplett aus */
-            background-position: center;    /* Bild wird mittig zentriert */
-            background-repeat: no-repeat;   /* Verhindert Kachelung */
-            background-attachment: fixed;   /* Bild fixiert beim Scrollen */
-            
-            color: white; 
-            font-family: sans-serif; 
-            text-align: center; 
-            padding: 20px; 
-            margin: 0; 
-            min-height: 100vh;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
+        background-color: #121212; 
+        /* Dynamische Hintergrund-Anpassung */
+        background-image: var(--bg-image);
+        background-size: contain;      /* ÄNDERUNG: Bild wird komplett eingepasst */
+        background-position: center;   /* Bild wird mittig zentriert */
+        background-repeat: no-repeat;  /* Verhindert Kachelung */
+        background-attachment: fixed;  /* Bild fixiert beim Scrollen */
+        
+        color: white; 
+        font-family: sans-serif; 
+        text-align: center; 
+        padding: 20px; 
+        margin: 0; 
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
         }
         
         .overlay {
