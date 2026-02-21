@@ -11,6 +11,7 @@
         .btn-pause { background-color: #ff4444 !important; }
         #restart-btn { background-color: #555; width: 92%; max-width: 300px; display: none; }
         #status { color: #1ed760; font-size: 16px; margin: 15px 0; font-weight: bold; min-height: 20px; }
+        /* Stabiles Log-Fenster */
         #debug { background-color: #ffffff; color: #000000; font-size: 11px; margin-top: 30px; text-align: left; padding: 10px; border: 2px solid #ff0000; border-radius: 5px; font-family: monospace; display: block; position: relative; height: 185px; overflow: hidden; }
         #log-content { height: 140px; white-space: pre-wrap; word-break: break-all; overflow: hidden; }
         .debug-nav { display: flex; justify-content: space-between; align-items: center; position: absolute; bottom: 5px; left: 10px; right: 10px; border-top: 1px solid #ddd; padding-top: 5px; background: white; }
@@ -20,9 +21,7 @@
 <body>
     <h3 style="margin-top: 10px; color: #555;">Disney Hitster Player</h3>
     <div id="status">System-Check...</div>
-    
     <a id="login-link" class="btn btn-large btn-play" style="display: none;">Mit Spotify verbinden</a>
-    
     <div id="game-ui">
         <button id="main-play-btn" class="btn btn-large btn-play" style="display: none;">▶ SONG STARTEN</button>
         <div class="player-controls">
@@ -30,34 +29,29 @@
             <button id="restart-btn" class="btn">🔄 NEUSTART</button>
         </div>
     </div>
-
     <div id="debug">
-        <div id="log-content">Initialisiere...</div>
+        <div id="log-content">Warte auf Initialisierung...</div>
         <div class="debug-nav">
             <button class="nav-btn" onclick="changePage(-1)">« ZURÜCK</button>
             <span id="page-info">S.1 / 1</span>
             <button class="nav-btn" onclick="changePage(1)">VOR »</button>
         </div>
     </div>
-
     <script>
         let allLogs = ["Log bereit."];
         let currentPage = 0;
         const pageSize = 10;
-
         function log(msg) {
             allLogs.push(msg);
             currentPage = Math.floor((allLogs.length - 1) / pageSize);
             renderLogs();
         }
-
         function renderLogs() {
             const start = currentPage * pageSize;
             const displayLogs = allLogs.slice(start, start + pageSize);
             document.getElementById('log-content').innerText = displayLogs.join("\n");
             document.getElementById('page-info').innerText = "S." + (currentPage + 1) + " / " + Math.ceil(allLogs.length / pageSize);
         }
-
         function changePage(dir) {
             currentPage = Math.max(0, Math.min(Math.ceil(allLogs.length / pageSize) - 1, currentPage + dir));
             renderLogs();
@@ -73,29 +67,25 @@
         const params = new URLSearchParams(window.location.search);
         let trackId = params.get('track') || localStorage.getItem('hitster_track');
 
-        // ID Reinigung
         if (params.get('track')) {
             trackId = params.get('track').split('&')[0].split('?')[0].replace(/[^a-zA-Z0-9]/g, '');
             localStorage.setItem('hitster_track', trackId);
             log("Track: " + trackId);
         }
-
-        // Token aus URL
         if (window.location.hash.includes("access_token")) {
             token = new URLSearchParams(window.location.hash.substring(1)).get('access_token');
             localStorage.setItem('hitster_token', token);
             window.history.replaceState(null, null, window.location.pathname + window.location.search);
-            log("Token aktiv!");
+            log("Token geladen!");
         }
 
         if (!token) {
             document.getElementById('status').innerText = "Anmeldung erforderlich";
             const loginLink = document.getElementById('login-link');
-            // FIX: Wir stellen sicher, dass alle Parameter absolut korrekt an Spotify gehen
             const scopes = encodeURIComponent('user-modify-playback-state user-read-playback-state');
-            loginLink.href = AUTH_URL + "?client_id=" + CLIENT_ID + "&response_type=token&redirect_uri=" + encodeURIComponent(redirectUri) + "&scope=" + scopes;
+            // WICHTIG: Die URL wird hier exakt so gebaut, wie Spotify sie erwartet
+            loginLink.href = `${AUTH_URL}?client_id=${CLIENT_ID}&response_type=token&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${scopes}`;
             loginLink.style.display = "inline-block";
-            log("Login-Link bereit.");
         } else {
             document.getElementById('status').innerText = "Bereit!";
             document.getElementById('main-play-btn').style.display = "block";
@@ -106,7 +96,7 @@
 
         function handleTogglePlay() {
             const action = isPlaying ? "pause" : "play";
-            fetch(API_URL + "/me/player/" + action, {
+            fetch(`${API_URL}/me/player/${action}`, {
                 method: 'PUT',
                 headers: { 'Authorization': 'Bearer ' + token }
             }).then(res => {
@@ -117,7 +107,6 @@
                 }
             });
         }
-
         function updatePlayButton() {
             const btn = document.getElementById('toggle-play');
             btn.innerText = isPlaying ? "PAUSE" : "PLAY";
@@ -125,10 +114,9 @@
             btn.style.display = "inline-block";
             document.getElementById('status').innerText = isPlaying ? "🎶 Musik läuft" : "⏸ Pausiert";
         }
-
         function startSong() {
-            log("Sende Play...");
-            fetch(API_URL + "/me/player/play", {
+            log("Anfrage an Spotify...");
+            fetch(`${API_URL}/me/player/play`, {
                 method: 'PUT',
                 body: JSON.stringify({ uris: ["spotify:track:" + trackId] }),
                 headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
