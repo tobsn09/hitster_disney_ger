@@ -17,17 +17,17 @@
         
         .volume-container { width: 92%; max-width: 300px; margin: 25px auto; display: none; }
         .slider { -webkit-appearance: none; width: 100%; height: 10px; border-radius: 5px; background: #333; outline: none; margin-top: 15px; }
-        .slider::-webkit-slider-thumb { -webkit-appearance: none; width: 24px; height: 24px; border-radius: 50%; background: #1ed760; cursor: pointer; border: 2px solid white; }
+        .slider::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 24px; height: 24px; border-radius: 50%; background: #1ed760; cursor: pointer; border: 2px solid white; }
 
         #status { color: #1ed760; font-size: 16px; margin: 15px 0; font-weight: bold; min-height: 20px; }
         #info-container { display: none; margin-top: 10px; }
         #album-art { width: 250px; border-radius: 10px; margin: 10px 0; box-shadow: 0 10px 30px rgba(0,0,0,0.5); visibility: hidden; }
         
-        /* FIX: Log mit fester Höhe verhindert das Hüpfen der UI */
-        #debug { background-color: #ffffff; color: #000000; font-size: 11px; margin-top: 30px; text-align: left; padding: 10px; border: 2px solid #ff0000; border-radius: 5px; font-family: monospace; display: block; overflow: hidden; }
-        #log-content { height: 140px; overflow-y: auto; white-space: pre-wrap; word-break: break-all; }
+        /* FIX: Feste Höhe für Log verhindert das UI-Springen */
+        #debug { background-color: #ffffff; color: #000000; font-size: 11px; margin-top: 30px; text-align: left; padding: 10px; border: 2px solid #ff0000; border-radius: 5px; font-family: monospace; display: block; }
+        #log-content { height: 130px; overflow-y: hidden; white-space: pre-wrap; word-break: break-all; }
         .debug-nav { display: flex; justify-content: space-between; margin-top: 10px; border-top: 1px solid #ddd; padding-top: 5px; }
-        .nav-btn { background: #eee; border: 1px solid #ccc; padding: 4px 10px; cursor: pointer; font-size: 11px; border-radius: 5px; color: #333; font-weight: bold; }
+        .nav-btn { background: #eee; border: 1px solid #ccc; padding: 3px 8px; cursor: pointer; font-size: 10px; border-radius: 3px; color: #333; font-weight: bold; }
     </style>
 </head>
 <body>
@@ -59,16 +59,16 @@
     </div>
 
     <div id="debug">
-        <div id="log-content">System-Log:<br></div>
+        <div id="log-content">Warte auf Aktionen...</div>
         <div class="debug-nav">
             <button class="nav-btn" onclick="changePage(-1)">« ZURÜCK</button>
-            <span id="page-info" style="font-size: 10px; line-height: 25px;">Seite 1</span>
+            <span id="page-info" style="font-size: 10px;">S. 1</span>
             <button class="nav-btn" onclick="changePage(1)">VOR »</button>
         </div>
     </div>
 
     <script>
-        // Pagination Logik
+        // Log & Pagination
         let allLogs = ["System initialisiert..."];
         let currentPage = 0;
         const pageSize = 10;
@@ -83,7 +83,7 @@
             const start = currentPage * pageSize;
             const end = start + pageSize;
             const displayLogs = allLogs.slice(start, end);
-            document.getElementById('log-content').innerText = "Log (S." + (currentPage + 1) + "):\n" + displayLogs.join("\n");
+            document.getElementById('log-content').innerText = "Log (Seite " + (currentPage + 1) + "):\n" + displayLogs.join("\n");
             document.getElementById('page-info').innerText = "S." + (currentPage + 1) + " / " + Math.ceil(allLogs.length / pageSize);
         }
 
@@ -102,7 +102,7 @@
         let token = localStorage.getItem('hitster_token');
         const params = new URLSearchParams(window.location.search);
         let trackId = params.get('track') || localStorage.getItem('hitster_track');
-        let volumeTimer = null; // Für Debounce
+        let volumeTimer = null;
 
         if (params.get('track')) {
             trackId = params.get('track').split('&')[0].split('?')[0].replace(/[^a-zA-Z0-9]/g, '');
@@ -115,6 +115,16 @@
             window.history.replaceState(null, null, window.location.pathname + window.location.search);
         }
 
+        function checkAuth(res) {
+            if (res.status === 401) {
+                log("Token abgelaufen (401). Neustart...");
+                localStorage.removeItem('hitster_token');
+                location.reload();
+                return false;
+            }
+            return true;
+        }
+
         if (!token) {
             document.getElementById('login-btn').style.display = "block";
             document.getElementById('login-btn').onclick = () => window.location.assign(AUTH_URL + "?client_id=" + CLIENT_ID + "&response_type=token&redirect_uri=" + encodeURIComponent(redirectUri) + "&scope=user-modify-playback-state%20user-read-playback-state");
@@ -125,20 +135,18 @@
             document.getElementById('toggle-play').onclick = handleTogglePlay;
             document.getElementById('restart-btn').onclick = () => startSong();
             
-            // LAUTSTÄRKE MIT DEBOUNCE (Schont die API und verhindert Lag)
             document.getElementById('vol-slider').oninput = function() {
                 const vol = this.value;
                 if (volumeTimer) clearTimeout(volumeTimer);
-                
                 volumeTimer = setTimeout(() => {
                     fetch(`${API_URL}/me/player/volume?volume_percent=${vol}`, {
                         method: 'PUT',
                         headers: { 'Authorization': 'Bearer ' + token }
                     }).then(res => {
-                        log("Lautstärke: " + vol + "% (Status: " + res.status + ")");
-                        if (res.status === 403) log("Hinweis: Spotify blockiert Volume-API auf diesem Handy.");
-                    }).catch(e => log("Fehler Volume: " + e));
-                }, 200); // 200ms warten
+                        checkAuth(res);
+                        log("Volume: " + vol + "% (Status: " + res.status + ")");
+                    });
+                }, 150);
             };
         }
 
@@ -148,7 +156,7 @@
                 method: 'PUT',
                 headers: { 'Authorization': 'Bearer ' + token }
             }).then(res => {
-                if(res.ok || res.status === 204) {
+                if(checkAuth(res) && (res.ok || res.status === 204)) {
                     isPlaying = !isPlaying;
                     updatePlayButton();
                 }
@@ -176,8 +184,7 @@
                 body: JSON.stringify({ uris: ["spotify:track:" + trackId] }),
                 headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
             }).then(res => {
-                log("Play Request: " + res.status);
-                if (res.ok || res.status === 204) {
+                if (checkAuth(res) && (res.ok || res.status === 204)) {
                     isPlaying = true;
                     document.getElementById('main-play-btn').style.display = "none";
                     document.getElementById('info-container').style.display = "block";
@@ -206,7 +213,6 @@
                 document.getElementById('reveal-btn').style.display = "none";
             });
         }
-        
         renderLogs();
     </script>
 </body>
