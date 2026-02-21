@@ -15,22 +15,40 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
+        // Fullscreen
         window.setDecorFitsSystemWindows(false)
         window.insetsController?.hide(WindowInsets.Type.statusBars())
 
         myWebView = findViewById(R.id.webview)
+        setupWebView()
+
+        myWebView.addJavascriptInterface(WebAppInterface(), "AndroidBridge")
+        myWebView.loadUrl("https://tobsn09.github.io/hitster_disney_ger/")
+    }
+
+    private fun setupWebView() {
         val settings = myWebView.settings
         settings.javaScriptEnabled = true
         settings.domStorageEnabled = true
         settings.databaseEnabled = true
+        settings.setSupportMultipleWindows(true)
+        settings.javaScriptCanOpenWindowsAutomatically = true
         settings.mediaPlaybackRequiresUserGesture = false
 
-        // S24 Ultra Tarnung für stabilen Redirect
+        // S24 Ultra Chrome-Tarnung für stabilere Logins
         settings.userAgentString = "Mozilla/5.0 (Linux; Android 14; SM-S928B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Mobile Safari/537.36"
 
-        myWebView.addJavascriptInterface(WebAppInterface(), "AndroidBridge")
-        myWebView.webViewClient = WebViewClient()
-        myWebView.loadUrl("https://tobsn09.github.io/hitster_disney_ger/")
+        myWebView.webViewClient = object : WebViewClient() {
+            override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
+                val url = request?.url.toString()
+                // Spotify-Redirects direkt in der WebView erzwingen
+                if (url.contains("accounts.spotify.com")) {
+                    view?.loadUrl(url)
+                    return true
+                }
+                return false
+            }
+        }
     }
 
     inner class WebAppInterface {
