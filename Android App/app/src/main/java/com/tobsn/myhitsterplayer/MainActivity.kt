@@ -34,6 +34,7 @@ class MainActivity : AppCompatActivity() {
     private fun setupWebView() {
         val settings = myWebView.settings
         settings.javaScriptEnabled = true
+        settings.userAgentString = "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Mobile Safari/537.36"
         settings.domStorageEnabled = true
         settings.mediaPlaybackRequiresUserGesture = false
         myWebView.webViewClient = WebViewClient()
