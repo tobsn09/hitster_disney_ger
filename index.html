@@ -7,102 +7,37 @@
         body {
             background-color: #121212;
             background-image: var(--bg-image);
-            background-size: contain;
-            background-position: center;
-            background-repeat: no-repeat;
-            background-attachment: fixed;
-            color: white;
-            font-family: sans-serif;
-            text-align: center;
-            padding: 0;
-            margin: 0;
-            min-height: 100vh;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
+            background-size: contain; background-position: center; background-repeat: no-repeat; background-attachment: fixed;
+            color: white; font-family: sans-serif; text-align: center; padding: 20px; margin: 0;
+            min-height: 100vh; display: flex; flex-direction: column; align-items: center;
         }
         .overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.6); z-index: -1; }
-
-        .content-wrapper {
-            width: 100%;
-            max-width: 500px;
-            z-index: 1;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            padding-top: 20px; /* Logo Abstand zum oberen Rand */
-        }
-
-        /* Logo Styling */
-        .logo-container {
-            width: 100%;
-            max-width: 300px;
-            margin-bottom: 30px;
-        }
-        .logo-container img {
-            width: 100%;
-            height: auto;
-        }
-
-        /* Einheitliches Button Styling */
-        .btn {
-            border: none;
-            padding: 18px 0;
-            font-size: 16px;
-            font-weight: bold;
-            border-radius: 20px;
-            cursor: pointer;
-            transition: transform 0.1s;
-            text-transform: uppercase;
-            color: white;
-            box-sizing: border-box;
-            text-decoration: none;
-            display: none; /* Wird per JS aktiviert */
-            width: 90%;
-            max-width: 320px;
-            margin: 8px 0; /* Vertikaler Abstand */
-        }
-        .btn:active { transform: scale(0.95); }
-
-        /* Farben */
+        .content-wrapper { width: 100%; max-width: 500px; z-index: 1; }
+        .btn { border: none; padding: 18px 10px; font-size: 16px; font-weight: bold; border-radius: 20px; cursor: pointer; margin: 8px 4px; transition: transform 0.1s; text-transform: uppercase; color: white; box-sizing: border-box; text-decoration: none; display: inline-block; width: 92%; max-width: 300px; }
+        .btn-large { padding: 20px; font-size: 18px; display: none; }
         .btn-play { background-color: var(--primary-color) !important; }
         .btn-pause { background-color: var(--secondary-color) !important; }
-        .btn-gray { background-color: #444 !important; }
-        .btn-red { background-color: #881111 !important; }
-
-        /* Abstände für Gruppen */
-        .margin-top-large { margin-top: 40px !important; }
-
-        #status { color: var(--primary-color); font-size: 16px; margin: 10px 0; font-weight: bold; min-height: 24px; }
-        #debug { background-color: rgba(255, 255, 255, 0.9); color: #000; font-size: 11px; margin-top: 20px; text-align: left; padding: 10px; border-radius: 5px; width: 90%; max-width: 400px; height: 150px; overflow-y: auto; display: none; }
+        #restart-btn { background-color: #555; display: none; }
+        #status { color: var(--primary-color); font-size: 16px; margin: 15px 0; font-weight: bold; min-height: 20px; }
+        #debug { background-color: rgba(255, 255, 255, 0.9); color: #000; font-size: 11px; margin-top: 30px; text-align: left; padding: 10px; border-radius: 5px; width: 92%; max-width: 400px; height: 150px; overflow-y: auto; display: none; }
     </style>
 </head>
 <body>
 <div class="overlay"></div>
-
 <div class="content-wrapper">
-    <div class="logo-container">
-        <img src="disney-logo-hintergrund.jpg" alt="Disney Logo">
-    </div>
-
-    <h3 id="app-title" style="margin: 0; color: #aaa; font-size: 14px;">Disney Hitster Player</h3>
+    <h3 id="app-title" style="margin-top: 10px; color: #aaa;">Player</h3>
     <div id="status">Initialisierung...</div>
-
-    <a id="login-link" class="btn btn-play" style="display: none;">Mit Spotify verbinden</a>
-
-    <div id="game-ui" style="width: 100%; display: flex; flex-direction: column; align-items: center;">
-        <button id="toggle-play" class="btn btn-play">▶ SONG STARTEN</button>
-
-        <button id="restart-btn" class="btn btn-gray">🔄 NEUSTART</button>
-
-        <button id="native-scan-btn" class="btn btn-gray margin-top-large">📸 KARTE SCANNEN</button>
-
-        <button id="reset-login-btn" class="btn btn-red margin-top-large">⚠️ RESET & LOGIN</button>
+    <a id="login-link" class="btn btn-large btn-play" style="display: none;">Mit Spotify verbinden</a>
+    <div id="game-ui">
+        <button id="main-play-btn" class="btn btn-large btn-play" style="display: none;">▶ SONG STARTEN</button>
+        <div class="player-controls" style="display: flex; flex-direction: column; align-items: center;">
+            <button id="toggle-play" class="btn btn-large" style="display: none;">PAUSE</button>
+            <button id="restart-btn" class="btn">🔄 RESET & LOGIN</button>
+            <button id="native-scan-btn" class="btn btn-large" style="display: none; background-color: #333 !important; margin-top: 15px;">📸 KARTE SCANNEN</button>
+        </div>
     </div>
-
     <div id="debug"><div id="log-content">System bereit.</div></div>
 </div>
-
 <script>
     /************************************************************
      * KONFIGURATION
@@ -110,7 +45,7 @@
     const CONFIG = {
         title: "Disney Hitster Player",
         backgroundImage: "url('disney-logo-hintergrund.jpg')",
-        showSystemLog: false,
+        showSystemLog: false, // Hier true/false für den weißen Kasten
         primaryColor: "#1ed760",
         secondaryColor: "#ff4444",
         clientId: '6959567a76bc4366b778ec6a5b853a91',
@@ -132,7 +67,8 @@
     const params = new URLSearchParams(window.location.search);
     let trackId = params.get('track') || localStorage.getItem('hitster_track');
 
-    // URL Parameter säubern
+    function log(m) { if(CONFIG.showSystemLog) document.getElementById('log-content').innerText += "\n" + m; }
+
     if (params.get('track')) {
         trackId = params.get('track').split('&')[0].replace(/[^a-zA-Z0-9]/g, '');
         localStorage.setItem('hitster_track', trackId);
@@ -143,7 +79,6 @@
         window.history.replaceState(null, null, window.location.pathname);
     }
 
-    // Login Logic
     if (!token) {
         const loginLink = document.getElementById('login-link');
         const scopes = encodeURIComponent('user-modify-playback-state user-read-playback-state');
@@ -151,65 +86,40 @@
         loginLink.style.display = "inline-block";
     } else {
         document.getElementById('status').innerText = "Bereit!";
-
-        // Buttons einblenden
-        const playBtn = document.getElementById('toggle-play');
-        const restartBtn = document.getElementById('restart-btn');
-        const resetBtn = document.getElementById('reset-login-btn');
-
-        playBtn.style.display = "block";
-        restartBtn.style.display = "block";
-        resetBtn.style.display = "block";
-
-        playBtn.onclick = handleTogglePlay;
-        restartBtn.onclick = startSong; // Neustart spielt den aktuellen Song von vorn
-        resetBtn.onclick = () => { localStorage.clear(); location.href = CONFIG.redirectUri; };
-
-        // Scanner Brücke
-        function initB() {
-            if(window.AndroidBridge){
-                const b = document.getElementById('native-scan-btn');
-                b.style.display = "block";
-                b.onclick = () => window.AndroidBridge.startScanner();
-            } else { setTimeout(initB, 500); }
-        }
+        document.getElementById('main-play-btn').style.display = "block";
+        document.getElementById('main-play-btn').onclick = startSong;
+        document.getElementById('toggle-play').onclick = handleTogglePlay;
+        document.getElementById('restart-btn').style.display = "inline-block";
+        document.getElementById('restart-btn').onclick = () => { localStorage.clear(); location.href = CONFIG.redirectUri; };
+        function initB() { if(window.AndroidBridge){ const b=document.getElementById('native-scan-btn'); b.style.display="block"; b.onclick=()=>window.AndroidBridge.startScanner(); }else{setTimeout(initB,500);}}
         initB();
     }
 
     async function startSong() {
         if (!trackId || !token) return;
-        document.getElementById('status').innerText = "Lade Song...";
         try {
             const dRes = await fetch(`${API_URL}/me/player/devices`, { headers: { 'Authorization': 'Bearer ' + token } });
             const dData = await dRes.json();
             const dev = dData.devices.find(d => d.is_active) || dData.devices[0];
             if (!dev) { document.getElementById('status').innerText = "Spotify App öffnen!"; return; }
-
             await fetch(`${API_URL}/me/player/play?device_id=${dev.id}`, {
-                method: 'PUT',
-                body: JSON.stringify({ uris: [`spotify:track:${trackId}`] }),
+                method: 'PUT', body: JSON.stringify({ uris: [`spotify:track:${trackId}`] }),
                 headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' }
             });
-            isPlaying = true;
-            updateUI();
-        } catch (e) { document.getElementById('status').innerText = "Verbindungsfehler!"; }
+            isPlaying = true; updateUI();
+        } catch (e) { document.getElementById('status').innerText = "Fehler!"; }
     }
 
     function handleTogglePlay() {
-        if (!isPlaying && trackId) {
-            startSong();
-            return;
-        }
-        const action = isPlaying ? 'pause' : 'play';
-        fetch(`${API_URL}/me/player/${action}`, { method: 'PUT', headers: { 'Authorization': 'Bearer ' + token } })
+        fetch(`${API_URL}/me/player/${isPlaying ? 'pause' : 'play'}`, { method: 'PUT', headers: { 'Authorization': 'Bearer ' + token } })
         .then(() => { isPlaying = !isPlaying; updateUI(); });
     }
-
     function updateUI() {
         const b = document.getElementById('toggle-play');
-        b.innerText = isPlaying ? "⏸ PAUSE" : "▶ WEITERSPIELEN";
-        b.className = isPlaying ? "btn btn-pause" : "btn btn-play";
-        document.getElementById('status').innerText = isPlaying ? "🎶 Musik läuft" : "⏸ Pausiert";
+        b.innerText = isPlaying ? "PAUSE" : "PLAY";
+        b.className = isPlaying ? "btn btn-large btn-pause" : "btn btn-large btn-play";
+        b.style.display = "inline-block";
+        document.getElementById('status').innerText = isPlaying ? "🎶 Läuft" : "⏸ Pause";
     }
 </script>
 </body>
