@@ -63,7 +63,126 @@
     <script>
         // --- HIER KOMMT SPÄTER DEINE ID REIN ---
         // Wenn Spotify wieder geht: Einfach diese Zeile ändern!
-        const CLIENT_ID = 'PLATZHALTER_FUER_SPAETER'; 
+        const CLIENT_ID = '<!DOCTYPE html>
+<html>
+<head>
+    <title>Hitster Player</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <style>
+        body { background-color: #111; color: white; font-family: sans-serif; text-align: center; display: flex; flex-direction: column; justify-content: center; height: 100vh; margin: 0; }
+        #play-btn { background-color: #ff0055; border: none; padding: 20px 40px; font-size: 24px; color: white; border-radius: 50px; cursor: pointer; box-shadow: 0 0 20px rgba(255, 0, 85, 0.5); }
+        #status { margin-top: 20px; color: #888; }
+        #reveal-btn { margin-top: 30px; background: transparent; border: 2px solid #555; color: #555; padding: 10px 20px; border-radius: 20px; display: none; }
+        .hidden-info { display: none; margin-top: 20px; }
+        img { width: 200px; border-radius: 10px; margin-top: 20px; }
+    </style>
+    <script src="https://sdk.scdn.co/spotify-player.js"></script>
+</head>
+<body>
+
+    <div id="controls">
+        <button id="play-btn">🎵 SONG ABSPIELEN</button>
+        <p id="status">Warte auf Verbindung...</p>
+        <button id="reveal-btn" onclick="reveal()">Auflösen</button>
+    </div>
+
+    <div id="info" class="hidden-info">
+        <h2 id="track-name"></h2>
+        <h3 id="artist-name"></h3>
+        <img id="album-art" src="" />
+    </div>
+
+    <script>
+        // --- HIER DEINE CLIENT ID EINFÜGEN ---
+        const CLIENT_ID = 'DEINE_CLIENT_ID_HIER_REIN_KOPIEREN'; 
+        // -------------------------------------
+
+        const params = new URLSearchParams(window.location.search);
+        const trackId = params.get('track');
+        let player;
+        let deviceId;
+        let token;
+
+        // Login-Flow (Ganz simpel gehalten)
+        const hash = window.location.hash.substring(1).split('&').reduce(function (initial, item) {
+            if (item) {
+                var parts = item.split('=');
+                initial[parts[0]] = decodeURIComponent(parts[1]);
+            }
+            return initial;
+        }, {});
+        
+        window.location.hash = '';
+        token = hash.access_token;
+
+        if (!token) {
+            const redirectUri = window.location.href.split('?')[0]; 
+            const scopes = 'streaming user-read-email user-read-private';
+            window.location = `https://accounts.spotify.com/authorize?client_id=${CLIENT_ID}&response_type=token&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(scopes)}`;
+        }
+
+        window.onSpotifyWebPlaybackSDKReady = () => {
+            player = new Spotify.Player({
+                name: 'Hitster Web Player',
+                getOAuthToken: cb => { cb(token); }
+            });
+
+            // Fehlerbehandlung
+            player.addListener('initialization_error', ({ message }) => { console.error(message); });
+            player.addListener('authentication_error', ({ message }) => { console.error(message); });
+            player.addListener('account_error', ({ message }) => { console.error(message); });
+
+            // Bereit zum Abspielen
+            player.addListener('ready', ({ device_id }) => {
+                console.log('Ready with Device ID', device_id);
+                deviceId = device_id;
+                document.getElementById('status').innerText = "Bereit!";
+                
+                document.getElementById('play-btn').onclick = function() {
+                    playSong(trackId);
+                };
+            });
+
+            player.connect();
+        };
+
+        function playSong(id) {
+            if(!id) return alert("Keine Song-ID im QR Code!");
+            
+            document.getElementById('status').innerText = "Wird geladen...";
+            
+            fetch(`https://api.spotify.com/v1/me/player/play?device_id=${deviceId}`, {
+                method: 'PUT',
+                body: JSON.stringify({ uris: [`spotify:track:${id}`] }),
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+            }).then(() => {
+                 document.getElementById('status').innerText = "Wiedergabe läuft...";
+                 document.getElementById('play-btn').style.display = 'none';
+                 document.getElementById('reveal-btn').style.display = 'inline-block';
+                 
+                 // Metadaten holen für Auflösung
+                 fetch(`https://api.spotify.com/v1/tracks/${id}`, {
+                    headers: {'Authorization': `Bearer ${token}`}
+                 })
+                 .then(res => res.json())
+                 .then(data => {
+                     document.getElementById('track-name').innerText = data.name;
+                     document.getElementById('artist-name').innerText = data.artists[0].name;
+                     document.getElementById('album-art').src = data.album.images[0].url;
+                 });
+            });
+        }
+
+        function reveal() {
+            document.getElementById('info').style.display = 'block';
+            document.getElementById('reveal-btn').style.display = 'none';
+        }
+    </script>
+</body>
+</html>'; 
         // ---------------------------------------
 
         const params = new URLSearchParams(window.location.search);
@@ -87,7 +206,7 @@
         // Wenn kein Token da ist, zur Spotify-Login-Seite schicken
         if (!token) {
             // Falls wir noch den Platzhalter haben, nichts tun (verhindert Fehler-Schleife beim Testen)
-            if(CLIENT_ID !== 'PLATZHALTER_FUER_SPAETER') {
+            if(CLIENT_ID !== '6959567a76bc4366b778ec6a5b853a91') {
                 const redirectUri = window.location.href.split('?')[0]; 
                 const scopes = 'streaming user-read-email user-read-private';
                 window.location = `https://accounts.spotify.com/authorize?client_id=${CLIENT_ID}&response_type=token&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(scopes)}`;
