@@ -31,189 +31,134 @@
     <div id="debug">System-Log:<br></div>
 
     <script>
-        function log(msg) { document.getElementById('debug').innerHTML += msg + "<br>"; }
-
-        // --- PKCE Helfer-Funktionen (Die neue Spotify-Sicherheit) ---
-        function generateRandomString(length) {
-            let text = '';
-            const possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~';
-            for (let i = 0; i < length; i++) {
-                text += possible.charAt(Math.floor(Math.random() * possible.length));
-            }
-            return text;
+        function log(msg) {
+            document.getElementById('debug').innerHTML += msg + "<br>";
         }
 
-        async function generateCodeChallenge(codeVerifier) {
-            const data = new TextEncoder().encode(codeVerifier);
-            const digest = await window.crypto.subtle.digest('SHA-256', data);
-            return btoa(String.fromCharCode.apply(null, [...new Uint8Array(digest)]))
-                .replace(/\+/g, '-')
-                .replace(/\//g, '_')
-                .replace(/=+$/, '');
-        }
+        try {
+            log("1. System startet (Clean Version)...");
+            const CLIENT_ID = '6959567a76bc4366b778ec6a5b853a91'; 
+            
+            const AUTH_URL = atob("aHR0cHM6Ly9hY2NvdW50cy5zcG90aWZ5LmNvbS9hdXRob3JpemU=");
+            const API_URL = atob("aHR0cHM6Ly9hcGkuc3BvdGlmeS5jb20vdjE=");
+            const redirectUri = "https://tobsn09.github.io/hitster_disney_ger/";
 
-        async function main() {
-            try {
-                log("1. System startet (Neues Spotify PKCE)...");
-                const CLIENT_ID = '6959567a76bc4366b778ec6a5b853a91'; 
-                
-                // DEINE ADRESSE (Exakt wie bei Spotify eingetragen)
-                const REDIRECT_URI = "https://tobsn09.github.io/hitster_disney_ger/";
-                
-                const AUTH_URL = atob("aHR0cHM6Ly9hY2NvdW50cy5zcG90aWZ5LmNvbS9hdXRob3JpemU=");
-                const TOKEN_URL = atob("aHR0cHM6Ly9hY2NvdW50cy5zcG90aWZ5LmNvbS9hcGkvdG9rZW4=");
-                const API_URL = atob("aHR0cHM6Ly9hcGkuc3BvdGlmeS5jb20vdjE=");
+            const params = new URLSearchParams(window.location.search);
+            let rawTrackId = params.get('track');
+            let trackId = null;
 
-                const params = new URLSearchParams(window.location.search);
-                let trackId = params.get('track');
-
-                if (trackId) {
+            // REINIGUNG: Wir filtern alles raus, was keine saubere ID ist.
+            if (rawTrackId) {
+                trackId = rawTrackId.split('&')[0].split('?')[0].replace(/[^a-zA-Z0-9]/g, '');
+                localStorage.setItem('hitster_track', trackId);
+                log("2. NEUE ID sauber gespeichert: " + trackId);
+            } else {
+                let savedId = localStorage.getItem('hitster_track');
+                if (savedId && savedId !== "null") {
+                    // Falls noch Müll im Speicher ist, putzen wir ihn jetzt weg:
+                    trackId = savedId.split('&')[0].split('?')[0].replace(/[^a-zA-Z0-9]/g, '');
                     localStorage.setItem('hitster_track', trackId);
+                    log("2. ALTE ID gereinigt & geladen: " + trackId);
                 } else {
-                    trackId = localStorage.getItem('hitster_track');
-                    if (trackId === "null") trackId = null;
+                    log("2. Keine ID gefunden.");
                 }
-                log("2. Track-ID bereit: " + trackId);
-
-                let token = localStorage.getItem('hitster_token');
-                if (token === "null") token = null;
-
-                // Prüfen, ob wir gerade frisch von Spotify ZURÜCKKOMMEN
-                const code = params.get('code');
-                const error = params.get('error');
-
-                if (error) {
-                    log("🚨 Spotify Fehler: " + error);
-                } else if (code) {
-                    log("3. Autorisierungs-Code da! Tausche gegen Schlüssel...");
-                    document.getElementById('status').innerText = "Verifiziere Login...";
-                    
-                    let codeVerifier = localStorage.getItem('code_verifier');
-                    
-                    const payload = {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                        body: new URLSearchParams({
-                            client_id: CLIENT_ID,
-                            grant_type: 'authorization_code',
-                            code: code,
-                            redirect_uri: REDIRECT_URI,
-                            code_verifier: codeVerifier
-                        })
-                    };
-
-                    try {
-                        const response = await fetch(TOKEN_URL, payload);
-                        const data = await response.json();
-                        
-                        if (data.access_token) {
-                            token = data.access_token;
-                            localStorage.setItem('hitster_token', token);
-                            log("4. Schlüssel erfolgreich ertauscht!");
-                            
-                            // Macht die URL wieder sauber (versteckt den Code)
-                            window.history.replaceState(null, null, window.location.pathname);
-                        } else {
-                            log("🚨 Tausch fehlgeschlagen: " + JSON.stringify(data));
-                        }
-                    } catch (e) {
-                        log("🚨 Netzwerkfehler beim Tausch: " + e.message);
-                    }
-                } else if (token) {
-                    log("3. Alter Schlüssel aus Speicher geladen.");
-                }
-
-                // Entscheidung: Müssen wir uns einloggen oder können wir spielen?
-                if (!token) {
-                    log("5. Kein Schlüssel. Zeige Login-Button.");
-                    document.getElementById('status').innerText = "Bitte anmelden";
-                    let loginBtn = document.getElementById('login-btn');
-                    loginBtn.style.display = "inline-block";
-                    
-                    loginBtn.onclick = async function() {
-                        log("-> Bereite sicheren PKCE-Login vor...");
-                        
-                        // Generiere die geheimen Passwörter für Spotify
-                        const codeVerifier = generateRandomString(64);
-                        localStorage.setItem('code_verifier', codeVerifier);
-                        const codeChallenge = await generateCodeChallenge(codeVerifier);
-                        
-                        const scopes = 'user-modify-playback-state user-read-playback-state';
-                        const authUrl = new URL(AUTH_URL);
-                        
-                        const authParams = {
-                            response_type: 'code', // <-- DAS ist die neue, erlaubte Methode!
-                            client_id: CLIENT_ID,
-                            scope: scopes,
-                            code_challenge_method: 'S256',
-                            code_challenge: codeChallenge,
-                            redirect_uri: REDIRECT_URI
-                        };
-                        
-                        authUrl.search = new URLSearchParams(authParams).toString();
-                        
-                        log("-> Fliege zu Spotify...");
-                        window.location.assign(authUrl.toString());
-                    };
-                } else {
-                    log("5. Wir sind voll eingeloggt!");
-                    document.getElementById('status').innerText = "Bereit für Hitster!";
-                    let playBtn = document.getElementById('play-btn');
-                    playBtn.style.display = "inline-block";
-                    
-                    playBtn.onclick = function() {
-                        log("-> PLAY geklickt.");
-                        if(!trackId) return alert("Huch! Keine Song-ID gefunden. Bitte einen QR-Code scannen.");
-                        
-                        document.getElementById('status').innerText = "Starte Wiedergabe...";
-                        playBtn.style.display = "none";
-                        
-                        fetch(API_URL + "/me/player/play", {
-                            method: 'PUT',
-                            body: JSON.stringify({ uris: ["spotify:track:" + trackId] }),
-                            headers: {
-                                'Content-Type': 'application/json',
-                                'Authorization': 'Bearer ' + token
-                            },
-                        }).then(response => {
-                            if (response.status === 401) {
-                                log("Schlüssel abgelaufen. Bitte 1x neu einloggen.");
-                                localStorage.removeItem('hitster_token');
-                                location.reload();
-                                return;
-                            }
-                            if (response.status === 404 || response.status === 403) {
-                                document.getElementById('status').innerText = "Bitte kurz die Spotify-App am Handy öffnen!";
-                                playBtn.style.display = "inline-block"; 
-                                return;
-                            }
-                            
-                            document.getElementById('status').innerText = "🎶 Musik läuft!";
-                            document.getElementById('reveal-btn').style.display = 'inline-block';
-                            
-                            fetch(API_URL + "/tracks/" + trackId, {
-                                headers: {'Authorization': 'Bearer ' + token}
-                            })
-                            .then(res => res.json())
-                            .then(data => {
-                                document.getElementById('track-name').innerText = data.name;
-                                document.getElementById('artist-name').innerText = data.artists[0].name;
-                                document.getElementById('album-art').src = data.album.images[0].url;
-                            });
-                        }).catch(err => {
-                            log("Fehler: " + err);
-                            document.getElementById('status').innerText = "Fehler beim Abspielen.";
-                            playBtn.style.display = "inline-block";
-                        });
-                    };
-                }
-            } catch (error) {
-                log("FEHLER: " + error.message);
             }
-        }
 
-        // Startschuss!
-        main();
+            let token = localStorage.getItem('hitster_token');
+            if (token === "null") token = null;
+
+            let currentHash = window.location.hash.substring(1);
+
+            if (currentHash && currentHash.includes("access_token")) {
+                let hashParts = currentHash.split('&');
+                for (let i = 0; i < hashParts.length; i++) {
+                    let pair = hashParts[i].split('=');
+                    if (pair[0] === 'access_token') {
+                        token = decodeURIComponent(pair[1]);
+                        localStorage.setItem('hitster_token', token); 
+                        log("3. Neuer Token gespeichert!");
+                    }
+                }
+                window.history.replaceState(null, null, window.location.pathname + window.location.search);
+            }
+
+            if (!token) {
+                log("4. Zeige Login-Button...");
+                const scopes = 'user-modify-playback-state user-read-playback-state';
+                const fullAuthUrl = AUTH_URL + "?client_id=" + CLIENT_ID + "&response_type=token&redirect_uri=" + encodeURIComponent(redirectUri) + "&scope=" + encodeURIComponent(scopes);
+                
+                document.getElementById('status').innerText = "Bitte anmelden";
+                let loginBtn = document.getElementById('login-btn');
+                loginBtn.style.display = "inline-block";
+                
+                loginBtn.onclick = function() {
+                    window.location.assign(fullAuthUrl);
+                };
+            } else {
+                log("4. Voll eingeloggt! Bereit.");
+                document.getElementById('status').innerText = "Bereit für Hitster!";
+                let playBtn = document.getElementById('play-btn');
+                playBtn.style.display = "inline-block";
+                
+                playBtn.onclick = function() {
+                    log("-> PLAY geklickt.");
+                    if(!trackId || trackId === "") return alert("Fehler: Keine Song-ID da!");
+                    
+                    document.getElementById('status').innerText = "Starte Wiedergabe...";
+                    playBtn.style.display = "none";
+                    
+                    log("Sende Anfrage für Track: " + trackId);
+                    
+                    fetch(API_URL + "/me/player/play", {
+                        method: 'PUT',
+                        body: JSON.stringify({ uris: ["spotify:track:" + trackId] }),
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': 'Bearer ' + token
+                        },
+                    }).then(response => {
+                        log("Spotify Antwort: " + response.status);
+                        
+                        if (response.status === 401) {
+                            log("Token abgelaufen. Mache Reset...");
+                            localStorage.removeItem('hitster_token');
+                            location.reload();
+                            return;
+                        }
+                        if (response.status === 400) {
+                            log("FEHLER 400: Die Song-ID ist falsch formatiert!");
+                            document.getElementById('status').innerText = "Fehler: ID ungültig.";
+                            playBtn.style.display = "inline-block";
+                            return;
+                        }
+                        if (response.status === 404 || response.status === 403) {
+                            document.getElementById('status').innerText = "Bitte Spotify-App öffnen & Play drücken!";
+                            log("Hinweis: Handy ist nicht das 'aktive Gerät' bei Spotify.");
+                            playBtn.style.display = "inline-block"; 
+                            return;
+                        }
+                        
+                        document.getElementById('status').innerText = "🎶 Musik läuft!";
+                        document.getElementById('reveal-btn').style.display = 'inline-block';
+                        
+                        fetch(API_URL + "/tracks/" + trackId, {
+                            headers: {'Authorization': 'Bearer ' + token}
+                        })
+                        .then(res => res.json())
+                        .then(data => {
+                            document.getElementById('track-name').innerText = data.name;
+                            document.getElementById('artist-name').innerText = data.artists[0].name;
+                            document.getElementById('album-art').src = data.album.images[0].url;
+                        });
+                    }).catch(err => {
+                        log("Netzwerkfehler: " + err);
+                        playBtn.style.display = "inline-block";
+                    });
+                };
+            }
+        } catch (error) {
+            log("FEHLER: " + error.message);
+        }
 
         function reveal() {
             document.getElementById('play-btn').style.display = 'none'; 
