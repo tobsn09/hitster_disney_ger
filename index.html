@@ -42,9 +42,8 @@
             const AUTH_URL = atob("aHR0cHM6Ly9hY2NvdW50cy5zcG90aWZ5LmNvbS9hdXRob3JpemU=");
             const API_URL = atob("aHR0cHM6Ly9hcGkuc3BvdGlmeS5jb20vdjE=");
 
-            // HIER IST DEINE ADRESSE JETZT FEST VERANKERT (Slash am Ende ist extrem wichtig!)
             const redirectUri = "https://tobsn09.github.io/hitster_disney_ger/";
-            log("2. Redirect URI: " + redirectUri);
+            log("2. Redirect URI gesetzt.");
 
             const params = new URLSearchParams(window.location.search);
             let trackId = params.get('track');
@@ -57,18 +56,31 @@
             }
             log("3. Track-ID: " + trackId);
 
-            let token = null;
+            // Token DAUERHAFT aus dem Speicher laden
+            let token = localStorage.getItem('hitster_token');
+            if (token === "null") token = null;
+
             let currentHash = window.location.hash.substring(1);
 
-            if (currentHash) {
-                const hashParams = new URLSearchParams(currentHash);
-                token = hashParams.get('access_token');
-                if (token) log("4. Token vorhanden!");
+            // Wenn wir frisch von Spotify kommen, neuen Token dauerhaft speichern
+            if (currentHash && currentHash.includes("access_token")) {
+                let hashParts = currentHash.split('&');
+                for (let i = 0; i < hashParts.length; i++) {
+                    let pair = hashParts[i].split('=');
+                    if (pair[0] === 'access_token') {
+                        token = decodeURIComponent(pair[1]);
+                        localStorage.setItem('hitster_token', token); // WICHTIG: Für immer speichern!
+                        log("4. Neuer Token empfangen & gespeichert!");
+                    }
+                }
+                // Aufräumen der URL, nachdem wir sicher gespeichert haben
                 window.history.replaceState(null, null, window.location.pathname + window.location.search);
+            } else if (token) {
+                log("4. Gespeicherter Token geladen!");
             }
 
             if (!token) {
-                log("5. Zeige Login-Button...");
+                log("5. Kein Token. Zeige Login-Button...");
                 const scopes = 'user-modify-playback-state user-read-playback-state';
                 const fullAuthUrl = AUTH_URL + "?client_id=" + CLIENT_ID + "&response_type=token&redirect_uri=" + encodeURIComponent(redirectUri) + "&scope=" + encodeURIComponent(scopes);
                 
@@ -77,7 +89,7 @@
                 loginBtn.style.display = "inline-block";
                 
                 loginBtn.onclick = function() {
-                    log("-> Klick erkannt! Leite erzwingend weiter...");
+                    log("-> Leite weiter zu Spotify...");
                     window.location.assign(fullAuthUrl);
                 };
             } else {
@@ -101,8 +113,15 @@
                             'Authorization': 'Bearer ' + token
                         },
                     }).then(response => {
+                        // Falls der Token irgendwann (nach 1 Stunde) abläuft, Login neu anfordern
+                        if (response.status === 401) {
+                            log("Token abgelaufen! Bitte neu einloggen.");
+                            localStorage.removeItem('hitster_token');
+                            location.reload();
+                            return;
+                        }
                         if (response.status === 404 || response.status === 403) {
-                            document.getElementById('status').innerText = "Bitte Spotify-App öffnen!";
+                            document.getElementById('status').innerText = "Bitte öffne kurz die Spotify-App!";
                             playBtn.style.display = "inline-block"; 
                             return;
                         }
