@@ -8,7 +8,7 @@
             /* Hintergrund-Farbe und Bild werden via JS aus der CONFIG gesetzt */
             background-size: contain; 
             background-repeat: no-repeat;
-            background-position: center 5%; 
+            background-position: center 10%; 
             color: white; 
             font-family: sans-serif; 
             text-align: center; 
@@ -17,7 +17,8 @@
             min-height: 100vh;
         }
         
-        .spacer { height: 22vh; }
+        /* Platzhalter für das Logo oben */
+        .spacer { height: 25vh; }
         
         .btn { border: none; padding: 18px 10px; font-size: 16px; font-weight: bold; cursor: pointer; margin: 8px 4px; transition: transform 0.1s; text-transform: uppercase; color: white; box-sizing: border-box; display: none; text-decoration: none; }
         .btn-large { width: 92%; max-width: 300px; padding: 20px; font-size: 18px; display: none; }
@@ -25,6 +26,7 @@
         
         #status { font-size: 16px; margin: 15px 0; font-weight: bold; min-height: 20px; text-shadow: 2px 2px 4px rgba(0,0,0,0.8); }
         
+        /* Log-Fenster Styling */
         #debug { background-color: rgba(255, 255, 255, 0.95); color: #000000; font-size: 11px; margin-top: 30px; text-align: left; padding: 10px; border: 2px solid #ff0000; border-radius: 5px; font-family: monospace; display: none; position: relative; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
         #log-content { height: 140px; white-space: pre-wrap; word-break: break-all; overflow: hidden; }
         .debug-nav { display: flex; justify-content: space-between; align-items: center; position: absolute; bottom: 5px; left: 10px; right: 10px; border-top: 1px solid #ddd; padding-top: 5px; background: white; }
@@ -65,19 +67,19 @@
             REDIRECT_URI: "https://tobsn09.github.io/hitster_disney_ger/",
             SCOPES: 'user-modify-playback-state user-read-playback-state',
             
-            LOGO_FILE: 'disney-logo-hintergrund.jpg', 
-            BG_COLOR: '#1a1445',                     // Angepasst an das Disney+ Blau-Violett
+            LOGO_FILE: 'disney-logo-hintergrund.jpg', // Festgelegter Dateiname
+            BG_COLOR: '#121212',                     // Passende Hintergrundfarbe
             
             ACCENT_GREEN: '#1ed760',       
             ACCENT_RED: '#ff4444',         
             BTN_RADIUS: '25px',            
-            SHOW_DEBUG: true,                        
+            SHOW_DEBUG: true,                        // Systemlog anzeigen?
             PAGE_SIZE: 10,                 
             LOG_BOX_HEIGHT: '185px'        
         };
 
         /* =========================================================
-           LOGIK
+           LOGIK (Bitte nicht ändern)
            ========================================================= */
         document.body.style.backgroundColor = CONFIG.BG_COLOR;
         document.body.style.backgroundImage = `url('${CONFIG.LOGO_FILE}')`;
@@ -177,7 +179,7 @@
                 headers: { 'Authorization': 'Bearer ' + token }
             }).then(res => {
                 if(res.status === 401) { localStorage.removeItem('hitster_token'); location.reload(); }
-                // Direkter Status-Wechsel nach dem Klick
+                // Status-Wechsel für den Button
                 isPlaying = !isPlaying;
                 updatePlayButton();
             });
@@ -194,4 +196,22 @@
 
         function startSong() {
             log("Sende Play...");
-            fetch(`https
+            fetch(`https://api.spotify.com/v1/me/player/play`, {
+                method: 'PUT',
+                body: JSON.stringify({ uris: ["spotify:track:" + trackId] }),
+                headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+            }).then(res => {
+                if (res.ok || res.status === 204) {
+                    isPlaying = true;
+                    document.getElementById('main-play-btn').style.display = "none";
+                    document.getElementById('restart-btn').style.display = "inline-block";
+                    updatePlayButton();
+                } else { document.getElementById('status').innerText = "Spotify App öffnen!"; }
+            });
+        }
+
+        if (params.has('code')) { handleCallback(); } else { initUI(); }
+        renderLogs();
+    </script>
+</body>
+</html>
