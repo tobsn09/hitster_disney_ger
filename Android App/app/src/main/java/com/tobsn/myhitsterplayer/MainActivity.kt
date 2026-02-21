@@ -39,14 +39,11 @@ class MainActivity : AppCompatActivity() {
         settings.userAgentString = "Mozilla/5.0 (Linux; Android 14; SM-S928B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Mobile Safari/537.36"
 
         myWebView.webViewClient = object : WebViewClient() {
-            override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
-                val url = request?.url.toString()
-                // Spotify-Redirects direkt in der WebView erzwingen
-                if (url.contains("accounts.spotify.com")) {
-                    view?.loadUrl(url)
-                    return true
-                }
-                return false
+            override fun onPageFinished(view: WebView?, url: String?) {
+                super.onPageFinished(view, url)
+                // Sobald eine Seite fertig geladen ist (auch nach dem Redirect)
+                // triggern wir eine JS-Funktion zur Sicherheit
+                view?.evaluateJavascript("checkForToken();", null)
             }
         }
     }
