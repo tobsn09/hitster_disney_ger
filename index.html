@@ -4,23 +4,34 @@
     <title>Disney Hitster Player</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <style>
-        body { background-color: #121212; color: white; font-family: sans-serif; text-align: center; padding: 20px; }
-        .btn { background-color: #1ed760; border: none; padding: 20px 40px; font-size: 20px; font-weight: bold; color: black; border-radius: 50px; cursor: pointer; display: none; margin: 20px auto; width: 80%; max-width: 300px; }
-        #status { color: #1ed760; font-size: 18px; margin-top: 20px; font-weight: bold;}
-        #reveal-btn { background: transparent; border: 2px solid #555; color: #fff; padding: 15px 30px; border-radius: 30px; display: none; margin: 20px auto; }
-        .hidden-info { display: none; margin-top: 20px; }
-        img { width: 250px; border-radius: 10px; margin-top: 10px; }
+        body { background-color: #121212; color: white; font-family: sans-serif; text-align: center; padding: 20px; margin: 0; }
+        .btn { border: none; padding: 20px 40px; font-size: 20px; font-weight: bold; border-radius: 50px; cursor: pointer; margin: 10px auto; width: 80%; max-width: 300px; display: none; transition: transform 0.1s; }
+        .btn:active { transform: scale(0.95); }
         
-        #debug { background-color: #ffffff !important; color: #000000 !important; font-size: 14px !important; margin-top: 30px; text-align: left; padding: 15px; border: 4px solid #ff0000 !important; border-radius: 5px; white-space: pre-wrap; word-break: break-all; font-family: monospace;}
+        #play-btn { background-color: #1ed760; color: black; }
+        #stop-btn { background-color: #ff4444; color: white; }
+        #reveal-btn { background-color: transparent; border: 2px solid #555; color: white; }
+        
+        #status { color: #1ed760; font-size: 18px; margin: 20px 0; font-weight: bold; min-height: 24px; }
+        .hidden-info { display: none; margin-top: 20px; animation: fadeIn 0.5s; }
+        img { width: 250px; border-radius: 10px; margin: 15px 0; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        
+        #debug { background-color: #ffffff; color: #000000; font-size: 12px; margin-top: 30px; text-align: left; padding: 10px; border: 2px solid #ff0000; border-radius: 5px; white-space: pre-wrap; word-break: break-all; font-family: monospace; display: block; }
+        
+        h2, h3 { margin: 5px 0; }
+        h3 { color: #b3b3b3; font-weight: normal; }
+
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
     </style>
 </head>
 <body>
-    <h3 style="margin-top: 10px;">Disney Hitster</h3>
-    <p id="status">Lade System...</p>
+    <h3 style="margin-top: 20px;">Disney Hitster</h3>
+    <div id="status">Lade System...</div>
     
-    <button id="login-btn" class="btn">Mit Spotify verbinden</button>
+    <button id="login-btn" class="btn" style="background-color: #1ed760; color: black;">Mit Spotify verbinden</button>
     <button id="play-btn" class="btn">▶ PLAY</button>
-    <button id="reveal-btn" onclick="reveal()">Auflösen</button>
+    <button id="stop-btn" class="btn">⏸ STOP / PAUSE</button>
+    <button id="reveal-btn" class="btn" onclick="reveal()">🕵️‍♂️ AUFLÖSEN</button>
 
     <div id="info" class="hidden-info">
         <h2 id="track-name"></h2>
@@ -33,12 +44,12 @@
     <script>
         function log(msg) {
             document.getElementById('debug').innerHTML += msg + "<br>";
+            console.log(msg);
         }
 
         try {
-            log("1. System startet (Clean Version)...");
+            log("System Start (Final-Build)");
             const CLIENT_ID = '6959567a76bc4366b778ec6a5b853a91'; 
-            
             const AUTH_URL = atob("aHR0cHM6Ly9hY2NvdW50cy5zcG90aWZ5LmNvbS9hdXRob3JpemU=");
             const API_URL = atob("aHR0cHM6Ly9hcGkuc3BvdGlmeS5jb20vdjE=");
             const redirectUri = "https://tobsn09.github.io/hitster_disney_ger/";
@@ -47,121 +58,80 @@
             let rawTrackId = params.get('track');
             let trackId = null;
 
-            // REINIGUNG: Wir filtern alles raus, was keine saubere ID ist.
             if (rawTrackId) {
                 trackId = rawTrackId.split('&')[0].split('?')[0].replace(/[^a-zA-Z0-9]/g, '');
                 localStorage.setItem('hitster_track', trackId);
-                log("2. NEUE ID sauber gespeichert: " + trackId);
             } else {
-                let savedId = localStorage.getItem('hitster_track');
-                if (savedId && savedId !== "null") {
-                    // Falls noch Müll im Speicher ist, putzen wir ihn jetzt weg:
-                    trackId = savedId.split('&')[0].split('?')[0].replace(/[^a-zA-Z0-9]/g, '');
-                    localStorage.setItem('hitster_track', trackId);
-                    log("2. ALTE ID gereinigt & geladen: " + trackId);
-                } else {
-                    log("2. Keine ID gefunden.");
-                }
+                trackId = localStorage.getItem('hitster_track');
             }
 
             let token = localStorage.getItem('hitster_token');
-            if (token === "null") token = null;
-
             let currentHash = window.location.hash.substring(1);
 
             if (currentHash && currentHash.includes("access_token")) {
-                let hashParts = currentHash.split('&');
-                for (let i = 0; i < hashParts.length; i++) {
-                    let pair = hashParts[i].split('=');
-                    if (pair[0] === 'access_token') {
-                        token = decodeURIComponent(pair[1]);
-                        localStorage.setItem('hitster_token', token); 
-                        log("3. Neuer Token gespeichert!");
-                    }
-                }
+                let hashParams = new URLSearchParams(currentHash);
+                token = hashParams.get('access_token');
+                localStorage.setItem('hitster_token', token);
                 window.history.replaceState(null, null, window.location.pathname + window.location.search);
             }
 
             if (!token) {
-                log("4. Zeige Login-Button...");
-                const scopes = 'user-modify-playback-state user-read-playback-state';
-                const fullAuthUrl = AUTH_URL + "?client_id=" + CLIENT_ID + "&response_type=token&redirect_uri=" + encodeURIComponent(redirectUri) + "&scope=" + encodeURIComponent(scopes);
-                
-                document.getElementById('status').innerText = "Bitte anmelden";
-                let loginBtn = document.getElementById('login-btn');
-                loginBtn.style.display = "inline-block";
-                
-                loginBtn.onclick = function() {
-                    window.location.assign(fullAuthUrl);
-                };
+                document.getElementById('status').innerText = "Anmeldung erforderlich";
+                let lb = document.getElementById('login-btn');
+                lb.style.display = "block";
+                lb.onclick = () => window.location.assign(AUTH_URL + "?client_id=" + CLIENT_ID + "&response_type=token&redirect_uri=" + encodeURIComponent(redirectUri) + "&scope=user-modify-playback-state%20user-read-playback-state");
             } else {
-                log("4. Voll eingeloggt! Bereit.");
-                document.getElementById('status').innerText = "Bereit für Hitster!";
-                let playBtn = document.getElementById('play-btn');
-                playBtn.style.display = "inline-block";
+                document.getElementById('status').innerText = "Bereit für Disney Hitster!";
+                document.getElementById('play-btn').style.display = "block";
                 
-                playBtn.onclick = function() {
-                    log("-> PLAY geklickt.");
-                    if(!trackId || trackId === "") return alert("Fehler: Keine Song-ID da!");
-                    
-                    document.getElementById('status').innerText = "Starte Wiedergabe...";
-                    playBtn.style.display = "none";
-                    
-                    log("Sende Anfrage für Track: " + trackId);
+                // PLAY-LOGIK
+                document.getElementById('play-btn').onclick = function() {
+                    if(!trackId) return alert("Fehler: Bitte Karte scannen!");
+                    document.getElementById('status').innerText = "Starte Musik...";
                     
                     fetch(API_URL + "/me/player/play", {
                         method: 'PUT',
                         body: JSON.stringify({ uris: ["spotify:track:" + trackId] }),
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'Authorization': 'Bearer ' + token
-                        },
-                    }).then(response => {
-                        log("Spotify Antwort: " + response.status);
-                        
-                        if (response.status === 401) {
-                            log("Token abgelaufen. Mache Reset...");
-                            localStorage.removeItem('hitster_token');
-                            location.reload();
-                            return;
+                        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+                    }).then(res => {
+                        if (res.status === 401) { localStorage.removeItem('hitster_token'); location.reload(); return; }
+                        if (res.status >= 200 && res.status < 300) {
+                            document.getElementById('status').innerText = "🎶 Wiedergabe läuft";
+                            document.getElementById('play-btn').style.display = "none";
+                            document.getElementById('stop-btn').style.display = "block";
+                            document.getElementById('reveal-btn').style.display = "block";
+                            
+                            // Infos laden
+                            fetch(API_URL + "/tracks/" + trackId, { headers: {'Authorization': 'Bearer ' + token} })
+                            .then(r => r.json()).then(data => {
+                                document.getElementById('track-name').innerText = data.name;
+                                document.getElementById('artist-name').innerText = data.artists[0].name;
+                                document.getElementById('album-art').src = data.album.images[0].url;
+                            });
+                        } else {
+                            document.getElementById('status').innerText = "Spotify App am Handy öffnen!";
                         }
-                        if (response.status === 400) {
-                            log("FEHLER 400: Die Song-ID ist falsch formatiert!");
-                            document.getElementById('status').innerText = "Fehler: ID ungültig.";
-                            playBtn.style.display = "inline-block";
-                            return;
-                        }
-                        if (response.status === 404 || response.status === 403) {
-                            document.getElementById('status').innerText = "Bitte Spotify-App öffnen & Play drücken!";
-                            log("Hinweis: Handy ist nicht das 'aktive Gerät' bei Spotify.");
-                            playBtn.style.display = "inline-block"; 
-                            return;
-                        }
-                        
-                        document.getElementById('status').innerText = "🎶 Musik läuft!";
-                        document.getElementById('reveal-btn').style.display = 'inline-block';
-                        
-                        fetch(API_URL + "/tracks/" + trackId, {
-                            headers: {'Authorization': 'Bearer ' + token}
-                        })
-                        .then(res => res.json())
-                        .then(data => {
-                            document.getElementById('track-name').innerText = data.name;
-                            document.getElementById('artist-name').innerText = data.artists[0].name;
-                            document.getElementById('album-art').src = data.album.images[0].url;
-                        });
-                    }).catch(err => {
-                        log("Netzwerkfehler: " + err);
-                        playBtn.style.display = "inline-block";
+                    });
+                };
+
+                // STOP-LOGIK
+                document.getElementById('stop-btn').onclick = function() {
+                    document.getElementById('status').innerText = "Pausiere Musik...";
+                    fetch(API_URL + "/me/player/pause", {
+                        method: 'PUT',
+                        headers: { 'Authorization': 'Bearer ' + token },
+                    }).then(res => {
+                        document.getElementById('status').innerText = "Musik pausiert.";
+                        document.getElementById('stop-btn').style.display = "none";
+                        document.getElementById('play-btn').style.display = "block";
                     });
                 };
             }
-        } catch (error) {
-            log("FEHLER: " + error.message);
-        }
+        } catch (e) { log("FEHLER: " + e.message); }
 
         function reveal() {
             document.getElementById('play-btn').style.display = 'none'; 
+            document.getElementById('stop-btn').style.display = 'none'; 
             document.getElementById('reveal-btn').style.display = 'none'; 
             document.getElementById('status').style.display = 'none'; 
             document.getElementById('info').style.display = 'block';    
