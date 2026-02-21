@@ -13,13 +13,18 @@
         }
         .overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.6); z-index: -1; }
         .content-wrapper { width: 100%; max-width: 500px; z-index: 1; display: flex; flex-direction: column; align-items: center; padding-top: 30px; }
+
         .logo-container { width: 90%; max-width: 300px; margin-bottom: 25px; }
         .logo-container img { width: 100%; height: auto; }
+
         .btn { border: none; padding: 18px 0; font-size: 16px; font-weight: bold; border-radius: 20px; cursor: pointer; transition: transform 0.1s; text-transform: uppercase; color: white; box-sizing: border-box; text-decoration: none; display: none; width: 90%; max-width: 320px; margin: 8px 0; }
+        .btn:active { transform: scale(0.95); }
+
         .btn-play { background-color: var(--primary-color) !important; }
         .btn-pause { background-color: var(--secondary-color) !important; }
         .btn-gray { background-color: #555 !important; }
         .btn-red { background-color: #881111 !important; }
+
         .spacer-top { margin-top: 40px !important; }
         #status { color: var(--primary-color); font-size: 16px; margin: 10px 0; font-weight: bold; min-height: 24px; }
     </style>
@@ -30,8 +35,10 @@
     <div class="logo-container">
         <img src="disney-logo-hintergrund.jpg" alt="Disney Logo">
     </div>
+
     <div id="status">Initialisierung...</div>
     <a id="login-link" class="btn btn-play">Mit Spotify verbinden</a>
+
     <div id="game-ui" style="width: 100%; display: flex; flex-direction: column; align-items: center;">
         <button id="toggle-play" class="btn btn-play">▶ SONG STARTEN</button>
         <button id="restart-btn" class="btn btn-gray">🔄 NEUSTART</button>
@@ -39,25 +46,20 @@
         <button id="reset-login-btn" class="btn btn-red spacer-top">⚠️ RESET & LOGIN</button>
     </div>
 </div>
+
 <script>
     const CONFIG = {
-        title: "Disney Hitster Player",
-        backgroundImage: "url('disney-logo-hintergrund.jpg')",
-        showSystemLog: false,
-        primaryColor: "#1ed760",
-        secondaryColor: "#ff4444",
         clientId: '6959567a76bc4366b778ec6a5b853a91',
-        redirectUri: "https://tobsn09.github.io/hitster_disney_ger/" // MUSS mit Spotify Dashboard matchen!
+        redirectUri: "https://tobsn09.github.io/hitster_disney_ger/", // EXAKT wie im Dashboard!
+        backgroundImage: "url('disney-logo-hintergrund.jpg')",
+        primaryColor: "#1ed760",
+        secondaryColor: "#ff4444"
     };
 
     document.documentElement.style.setProperty('--bg-image', CONFIG.backgroundImage);
     document.documentElement.style.setProperty('--primary-color', CONFIG.primaryColor);
     document.documentElement.style.setProperty('--secondary-color', CONFIG.secondaryColor);
 
-    const AUTH_URL = "https://accounts.spotify.com/authorize";
-    const API_URL = "https://api.spotify.com/v1";
-
-    let isPlaying = false;
     let token = localStorage.getItem('hitster_token');
     const params = new URLSearchParams(window.location.search);
     let trackId = params.get('track') || localStorage.getItem('hitster_track');
@@ -76,14 +78,15 @@
     if (!token) {
         const loginLink = document.getElementById('login-link');
         const scopes = encodeURIComponent('user-modify-playback-state user-read-playback-state');
-        // WICHTIG: Kein extra Schnickschnack in der URL
-        loginLink.href = `${AUTH_URL}?client_id=${CONFIG.clientId}&response_type=token&redirect_uri=${encodeURIComponent(CONFIG.redirectUri)}&scope=${scopes}`;
+        // Hier wird der saubere Login-Link generiert
+        loginLink.href = `https://accounts.spotify.com/authorize?client_id=${CONFIG.clientId}&response_type=token&redirect_uri=${encodeURIComponent(CONFIG.redirectUri)}&scope=${scopes}`;
         loginLink.style.display = "block";
     } else {
         document.getElementById('status').innerText = "Bereit!";
         document.getElementById('toggle-play').style.display = "block";
         document.getElementById('restart-btn').style.display = "block";
         document.getElementById('reset-login-btn').style.display = "block";
+
         document.getElementById('toggle-play').onclick = handleTogglePlay;
         document.getElementById('restart-btn').onclick = startSong;
         document.getElementById('reset-login-btn').onclick = () => { localStorage.clear(); location.href = CONFIG.redirectUri; };
@@ -101,28 +104,29 @@
     async function startSong() {
         if (!trackId || !token) return;
         try {
-            const dRes = await fetch(`${API_URL}/me/player/devices`, { headers: { 'Authorization': 'Bearer ' + token } });
+            const dRes = await fetch("https://api.spotify.com/v1/me/player/devices", { headers: { 'Authorization': 'Bearer ' + token } });
             const dData = await dRes.json();
             const dev = dData.devices.find(d => d.is_active) || dData.devices[0];
             if (!dev) { document.getElementById('status').innerText = "Spotify App öffnen!"; return; }
-            await fetch(`${API_URL}/me/player/play?device_id=${dev.id}`, {
+            await fetch(`https://api.spotify.com/v1/me/player/play?device_id=${dev.id}`, {
                 method: 'PUT', body: JSON.stringify({ uris: [`spotify:track:${trackId}`] }),
                 headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' }
             });
-            isPlaying = true; updateUI();
+            updateUI(true);
         } catch (e) { document.getElementById('status').innerText = "Fehler!"; }
     }
 
     function handleTogglePlay() {
-        if (!isPlaying && trackId) { startSong(); return; }
-        fetch(`${API_URL}/me/player/${isPlaying ? 'pause' : 'play'}`, { method: 'PUT', headers: { 'Authorization': 'Bearer ' + token } })
-        .then(() => { isPlaying = !isPlaying; updateUI(); });
+        const action = document.getElementById('status').innerText.includes("Läuft") ? 'pause' : 'play';
+        fetch(`https://api.spotify.com/v1/me/player/${action}`, { method: 'PUT', headers: { 'Authorization': 'Bearer ' + token } })
+        .then(() => updateUI(action === 'play'));
     }
-    function updateUI() {
+
+    function updateUI(playing) {
         const b = document.getElementById('toggle-play');
-        b.innerText = isPlaying ? "⏸ PAUSE" : "▶ WEITERSPIELEN";
-        b.className = isPlaying ? "btn btn-pause" : "btn btn-play";
-        document.getElementById('status').innerText = isPlaying ? "🎶 Läuft" : "⏸ Pause";
+        b.innerText = playing ? "⏸ PAUSE" : "▶ WEITERSPIELEN";
+        b.className = playing ? "btn btn-pause" : "btn btn-play";
+        document.getElementById('status').innerText = playing ? "🎶 Musik läuft" : "⏸ Pausiert";
     }
 </script>
 </body>
