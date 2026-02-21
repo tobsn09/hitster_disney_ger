@@ -5,17 +5,17 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <style>
         body { background-color: #121212; color: white; font-family: sans-serif; text-align: center; padding: 20px; margin: 0; }
-        .btn { border: none; padding: 18px 10px; font-size: 16px; font-weight: bold; border-radius: 20px; cursor: pointer; margin: 8px 4px; transition: transform 0.1s; text-transform: uppercase; color: white; box-sizing: border-box; display: none; }
+        .btn { border: none; padding: 18px 10px; font-size: 16px; font-weight: bold; border-radius: 20px; cursor: pointer; margin: 8px 4px; transition: transform 0.1s; text-transform: uppercase; color: white; box-sizing: border-box; text-decoration: none; display: inline-block; }
         .btn-large { width: 92%; max-width: 300px; padding: 20px; font-size: 18px; display: none; }
         .btn:active { transform: scale(0.95); }
         
-        .btn-play { background-color: #1ed760 !important; width: 92%; max-width: 300px; }
-        .btn-pause { background-color: #ff4444 !important; width: 92%; max-width: 300px; }
-        #restart-btn { background-color: #555; width: 92%; max-width: 300px; }
+        .btn-play { background-color: #1ed760 !important; }
+        .btn-pause { background-color: #ff4444 !important; }
+        #restart-btn { background-color: #555; width: 92%; max-width: 300px; display: none; }
         
         #status { color: #1ed760; font-size: 16px; margin: 15px 0; font-weight: bold; min-height: 20px; }
         
-        /* FIX: Feste Höhe verhindert das Hüpfen der UI */
+        /* FIX: Feste Höhe verhindert das Springen */
         #debug { background-color: #ffffff; color: #000000; font-size: 11px; margin-top: 30px; text-align: left; padding: 10px; border: 2px solid #ff0000; border-radius: 5px; font-family: monospace; display: block; position: relative; height: 185px; overflow: hidden; }
         #log-content { height: 140px; white-space: pre-wrap; word-break: break-all; overflow: hidden; }
         .debug-nav { display: flex; justify-content: space-between; align-items: center; position: absolute; bottom: 5px; left: 10px; right: 10px; border-top: 1px solid #ddd; padding-top: 5px; background: white; }
@@ -24,21 +24,20 @@
 </head>
 <body>
     <h3 style="margin-top: 10px; color: #555;">Disney Hitster Player</h3>
-    <div id="status">System-Check...</div>
+    <div id="status">Initialisierung...</div>
     
-    <button id="login-btn" class="btn btn-large" style="background-color: #1ed760; color: white;">Mit Spotify verbinden</button>
+    <a id="login-link" class="btn btn-large btn-play">Mit Spotify verbinden</a>
     
     <div id="game-ui">
         <button id="main-play-btn" class="btn btn-large btn-play">▶ SONG STARTEN</button>
-        
-        <div class="player-controls" id="controls">
-            <button id="toggle-play" class="btn">PAUSE</button>
+        <div class="player-controls">
+            <button id="toggle-play" class="btn btn-large">PAUSE</button>
             <button id="restart-btn" class="btn">🔄 NEUSTART</button>
         </div>
     </div>
 
     <div id="debug">
-        <div id="log-content">Warte auf Initialisierung...</div>
+        <div id="log-content">System-Start...</div>
         <div class="debug-nav">
             <button class="nav-btn" onclick="changePage(-1)">« ZURÜCK</button>
             <span id="page-info">S.1 / 1</span>
@@ -47,7 +46,7 @@
     </div>
 
     <script>
-        let allLogs = ["System initialisiert."];
+        let allLogs = ["Log initialisiert."];
         let currentPage = 0;
         const pageSize = 10;
 
@@ -83,29 +82,22 @@
         if (params.get('track')) {
             trackId = params.get('track').split('&')[0].split('?')[0].replace(/[^a-zA-Z0-9]/g, '');
             localStorage.setItem('hitster_track', trackId);
-            log("ID erkannt: " + trackId);
+            log("Track: " + trackId);
         }
 
         if (window.location.hash.includes("access_token")) {
             token = new URLSearchParams(window.location.hash.substring(1)).get('access_token');
             localStorage.setItem('hitster_token', token);
             window.history.replaceState(null, null, window.location.pathname + window.location.search);
-            log("Login-Token gespeichert.");
+            log("Token geladen!");
         }
 
         if (!token) {
-            document.getElementById('login-btn').style.display = "block";
-            document.getElementById('login-btn').onclick = function(e) {
-                e.preventDefault();
-                log("Verbindung wird hergestellt...");
-                const scopes = encodeURIComponent('user-modify-playback-state user-read-playback-state');
-                const fullUrl = AUTH_URL + "?client_id=" + CLIENT_ID + "&response_type=token&redirect_uri=" + encodeURIComponent(redirectUri) + "&scope=" + scopes;
-                
-                // Kurze Verzögerung, damit der Log-Eintrag sichtbar wird
-                setTimeout(() => {
-                    window.location.href = fullUrl;
-                }, 100);
-            };
+            document.getElementById('status').innerText = "Bitte anmelden";
+            const loginLink = document.getElementById('login-link');
+            const scopes = encodeURIComponent('user-modify-playback-state user-read-playback-state');
+            loginLink.href = `${AUTH_URL}?client_id=${CLIENT_ID}&response_type=token&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${scopes}`;
+            loginLink.style.display = "inline-block";
         } else {
             document.getElementById('status').innerText = "Bereit!";
             document.getElementById('main-play-btn').style.display = "block";
@@ -121,7 +113,6 @@
                 headers: { 'Authorization': 'Bearer ' + token }
             }).then(res => {
                 if(res.status === 401) { 
-                    log("Token abgelaufen. Neuladen...");
                     localStorage.removeItem('hitster_token'); 
                     location.reload(); 
                 }
@@ -135,13 +126,13 @@
         function updatePlayButton() {
             const btn = document.getElementById('toggle-play');
             btn.innerText = isPlaying ? "PAUSE" : "PLAY";
-            btn.className = isPlaying ? "btn btn-pause" : "btn btn-play";
+            btn.className = isPlaying ? "btn btn-large btn-pause" : "btn btn-large btn-play";
             btn.style.display = "inline-block";
             document.getElementById('status').innerText = isPlaying ? "🎶 Musik läuft" : "⏸ Pausiert";
         }
 
         function startSong() {
-            log("Anfrage an Spotify...");
+            log("Starte Wiedergabe...");
             fetch(`${API_URL}/me/player/play`, {
                 method: 'PUT',
                 body: JSON.stringify({ uris: ["spotify:track:" + trackId] }),
@@ -156,10 +147,8 @@
                     document.getElementById('main-play-btn').style.display = "none";
                     document.getElementById('restart-btn').style.display = "inline-block";
                     updatePlayButton();
-                    log("Wiedergabe gestartet.");
                 } else {
                     document.getElementById('status').innerText = "Spotify App öffnen!";
-                    log("Fehler: " + res.status);
                 }
             });
         }
