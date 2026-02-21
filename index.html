@@ -7,10 +7,24 @@
         body { background-color: #121212; color: white; font-family: sans-serif; text-align: center; padding: 20px; }
         #play-btn { background-color: #1ed760; border: none; padding: 20px 40px; font-size: 24px; font-weight: bold; color: black; border-radius: 50px; cursor: pointer; display: none; margin: 20px auto; }
         #status { color: #1ed760; font-size: 18px; margin-top: 20px; font-weight: bold;}
-        #debug { color: #888; font-size: 12px; margin-top: 30px; text-align: left; background: #222; padding: 10px; border-radius: 5px; white-space: pre-wrap; font-family: monospace; }
         #reveal-btn { background: transparent; border: 2px solid #555; color: #fff; padding: 15px 30px; border-radius: 30px; display: none; margin: 20px auto; }
         .hidden-info { display: none; margin-top: 20px; }
         img { width: 250px; border-radius: 10px; margin-top: 10px; }
+        
+        /* ANTI-DARKMODE DIAGNOSE BOX */
+        #debug { 
+            background-color: #ffffff !important; 
+            color: #000000 !important; 
+            font-size: 14px !important; 
+            font-weight: bold !important;
+            margin-top: 30px; 
+            text-align: left; 
+            padding: 15px; 
+            border: 4px solid #ff0000 !important; 
+            border-radius: 5px; 
+            white-space: pre-wrap; 
+            font-family: monospace; 
+        }
     </style>
 </head>
 <body>
@@ -36,7 +50,6 @@
             log("1. Skript gestartet.");
             const CLIENT_ID = '6959567a76bc4366b778ec6a5b853a91'; 
             
-            // Base64 Codierung, damit der Chat-Filter die Links 100% in Ruhe lässt
             const AUTH_URL = atob("aHR0cHM6Ly9hY2NvdW50cy5zcG90aWZ5LmNvbS9hdXRob3JpemU=");
             const API_URL = atob("aHR0cHM6Ly9hcGkuc3BvdGlmeS5jb20vdjE=");
             log("2. URLs gesichert.");
@@ -75,7 +88,11 @@
                 let loginBtn = document.getElementById('play-btn');
                 loginBtn.innerText = "Mit Spotify verbinden";
                 loginBtn.style.display = "block";
-                loginBtn.onclick = function() { window.location = fullAuthUrl; };
+                
+                loginBtn.onclick = function() { 
+                    log("-> Login geklickt! Leite weiter...");
+                    window.location.href = fullAuthUrl; 
+                };
             } else {
                 log("5. Token geladen! Bereit.");
                 document.getElementById('status').innerText = "Bereit für Hitster!";
@@ -84,7 +101,10 @@
                 
                 playBtn.onclick = function() {
                     log("6. PLAY geklickt.");
-                    if(!trackId) return alert("Fehler: Keine Song-ID gefunden. Bitte QR scannen!");
+                    if(!trackId) {
+                        log("Fehler: ID fehlt!");
+                        return alert("Fehler: Keine Song-ID gefunden. Bitte QR scannen!");
+                    }
                     
                     document.getElementById('status').innerText = "Starte Wiedergabe...";
                     playBtn.style.display = "none";
@@ -123,6 +143,7 @@
                     }).catch(err => {
                         log("Fetch-Fehler: " + err);
                         document.getElementById('status').innerText = "Fehler beim Abspielen.";
+                        playBtn.style.display = "block";
                     });
                 };
             }
