@@ -5,65 +5,44 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <style>
         body { background-color: #121212; color: white; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; text-align: center; display: flex; flex-direction: column; justify-content: center; height: 100vh; margin: 0; }
-        
-        /* Der riesige Play-Button */
-        #play-btn { 
-            background-color: #1ed760; 
-            border: none; 
-            padding: 30px 60px; 
-            font-size: 28px; 
-            font-weight: bold;
-            color: black; 
-            border-radius: 500px; 
-            cursor: pointer; 
-            box-shadow: 0 0 30px rgba(30, 215, 96, 0.4); 
-            transition: transform 0.1s;
-        }
-        #play-btn:active { transform: scale(0.95); }
-
+        #play-btn { background-color: #1ed760; border: none; padding: 30px 60px; font-size: 28px; font-weight: bold; color: black; border-radius: 500px; cursor: pointer; box-shadow: 0 0 30px rgba(30, 215, 96, 0.4); }
         #status { margin-top: 30px; color: #b3b3b3; font-size: 14px; }
-        
-        /* Der Auflösen-Button (erst unsichtbar) */
-        #reveal-btn { 
-            margin-top: 40px; 
-            background: transparent; 
-            border: 2px solid #535353; 
-            color: #fff; 
-            padding: 15px 30px; 
-            border-radius: 30px; 
-            font-size: 16px;
-            cursor: pointer;
-            display: none; 
-        }
-        
-        /* Die versteckte Lösung */
+        #reveal-btn { margin-top: 40px; background: transparent; border: 2px solid #535353; color: #fff; padding: 15px 30px; border-radius: 30px; font-size: 16px; cursor: pointer; display: none; }
         .hidden-info { display: none; margin-top: 40px; animation: fadeIn 1s; }
         img { width: 250px; border-radius: 10px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); margin-top: 20px; }
         h2 { margin: 20px 0 10px 0; font-size: 24px; }
         h3 { margin: 0; color: #b3b3b3; font-weight: normal; }
-
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
     </style>
+</head>
+<body>
+
+    <div id="controls">
+        <button id="play-btn">▶ SONG STARTEN</button>
+        <p id="status">Bereit.</p>
+        <button id="reveal-btn" onclick="reveal()">Auflösen 🕵️‍♂️</button>
+    </div>
+
+    <div id="info" class="hidden-info">
+        <h2 id="track-name">Lade Titel...</h2>
+        <h3 id="artist-name">Lade Interpret...</h3>
+        <img id="album-art" src="" />
+    </div>
+
     <script>
         const CLIENT_ID = '6959567a76bc4366b778ec6a5b853a91'; 
-
-        // 1. FIX: Saubere URLs (in Stücke gehackt, damit der Chat-Filter sie in Ruhe lässt)
-        const AUTH_URL = "https://accounts" + ".spotify." + "com/authorize";
-        const API_URL = "https://api" + ".spotify." + "com/v1";
+        const AUTH_URL = "https://accounts.spotify.com/authorize";
+        const API_URL = "https://api.spotify.com/v1";
 
         const params = new URLSearchParams(window.location.search);
         let trackId = params.get('track');
         
-        // 2. FIX: Song-ID im Browser merken! (Sonst vergisst er den Song durch den Login)
+        // ID merken, falls wir zum Login weitergeleitet werden
         if (trackId) {
             localStorage.setItem('hitster_track', trackId);
         } else {
             trackId = localStorage.getItem('hitster_track');
         }
-
-        let player;
-        let deviceId;
-        let token;
 
         const hash = window.location.hash.substring(1).split('&').reduce(function (initial, item) {
             if (item) {
@@ -74,63 +53,51 @@
         }, {});
         
         window.location.hash = '';
-        token = hash.access_token;
+        let token = hash.access_token;
 
         if (!token) {
-            // Wenn wir nicht eingeloggt sind -> Ab zu Spotify
             const redirectUri = window.location.href.split('?')[0].split('#')[0]; 
-            const scopes = 'streaming user-read-email user-read-private';
+            const scopes = 'user-modify-playback-state user-read-playback-state';
             window.location = `${AUTH_URL}?client_id=${CLIENT_ID}&response_type=token&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(scopes)}`;
-        } else {
-            // Wenn wir eingeloggt sind -> Player laden
-            window.onSpotifyWebPlaybackSDKReady = () => {
-                player = new Spotify.Player({
-                    name: 'Disney Hitster Player',
-                    getOAuthToken: cb => { cb(token); }
-                });
-
-                player.addListener('ready', ({ device_id }) => {
-                    deviceId = device_id;
-                    document.getElementById('status').innerText = "Bereit zum Abspielen!";
-                    
-                    document.getElementById('play-btn').onclick = function() {
-                        playSong(trackId);
-                    };
-                });
-
-                player.connect();
-            };
         }
 
-        function playSong(id) {
-            if(!id) return alert("Fehler: Keine Song-ID gefunden. Bitte den QR Code der Karte scannen!");
-            if(!deviceId) return alert("Player lädt noch. Warte eine Sekunde...");
+        document.getElementById('play-btn').onclick = function() {
+            if(!trackId) return alert("Fehler: Keine Song-ID gefunden. Bitte scannen!");
             
-            document.getElementById('status').innerText = "Lade Song...";
+            document.getElementById('status').innerText = "Starte Song auf deinem Handy...";
             
-            fetch(`${API_URL}/me/player/play?device_id=${deviceId}`, {
+            // Befehl an die Spotify API (ohne eigene Player-Instanz)
+            fetch(`${API_URL}/me/player/play`, {
                 method: 'PUT',
-                body: JSON.stringify({ uris: [`spotify:track:${id}`] }),
+                body: JSON.stringify({ uris: [`spotify:track:${trackId}`] }),
                 headers: {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${token}`
                 },
-            }).then(() => {
-                 document.getElementById('status').innerText = "Wiedergabe läuft...";
-                 document.getElementById('play-btn').style.display = 'none';
-                 document.getElementById('reveal-btn').style.display = 'inline-block';
-                 
-                 fetch(`${API_URL}/tracks/${id}`, {
+            }).then(response => {
+                if (response.status === 404 || response.status === 403) {
+                    document.getElementById('status').innerText = "Tipp: Öffne kurz die Spotify-App im Hintergrund, damit sie aktiv ist!";
+                    return;
+                }
+                
+                document.getElementById('status').innerText = "Wiedergabe läuft in der Spotify App...";
+                document.getElementById('play-btn').style.display = 'none';
+                document.getElementById('reveal-btn').style.display = 'inline-block';
+                
+                // Infos für die Auflösung laden
+                fetch(`${API_URL}/tracks/${trackId}`, {
                     headers: {'Authorization': `Bearer ${token}`}
-                 })
-                 .then(res => res.json())
-                 .then(data => {
-                     document.getElementById('track-name').innerText = data.name;
-                     document.getElementById('artist-name').innerText = data.artists[0].name;
-                     document.getElementById('album-art').src = data.album.images[0].url;
-                 });
+                })
+                .then(res => res.json())
+                .then(data => {
+                    document.getElementById('track-name').innerText = data.name;
+                    document.getElementById('artist-name').innerText = data.artists[0].name;
+                    document.getElementById('album-art').src = data.album.images[0].url;
+                });
+            }).catch(err => {
+                document.getElementById('status').innerText = "Fehler beim Abspielen.";
             });
-        }
+        };
 
         function reveal() {
             document.getElementById('controls').style.display = 'none'; 
