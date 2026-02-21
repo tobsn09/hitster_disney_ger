@@ -37,50 +37,49 @@
 
         try {
             log("1. System startet...");
-            const CLIENT_ID = '6959567a76bc4366b778ec6a5b853a91'; 
             
+            const CLIENT_ID = '6959567a76bc4366b778ec6a5b853a91'; 
             const AUTH_URL = atob("aHR0cHM6Ly9hY2NvdW50cy5zcG90aWZ5LmNvbS9hdXRob3JpemU=");
             const API_URL = atob("aHR0cHM6Ly9hcGkuc3BvdGlmeS5jb20vdjE=");
-
             const redirectUri = "https://tobsn09.github.io/hitster_disney_ger/";
-            log("2. Redirect URI gesetzt.");
 
+            // Track-ID laden
             const params = new URLSearchParams(window.location.search);
             let trackId = params.get('track');
-
             if (trackId) {
                 localStorage.setItem('hitster_track', trackId);
             } else {
                 trackId = localStorage.getItem('hitster_track');
                 if (trackId === "null") trackId = null; 
             }
-            log("3. Track-ID: " + trackId);
+            log("2. Track-ID: " + trackId);
 
-            // Token DAUERHAFT aus dem Speicher laden
+            // Token aus Speicher laden
             let token = localStorage.getItem('hitster_token');
             if (token === "null") token = null;
 
-            let currentHash = window.location.hash.substring(1);
-
-            // Wenn wir frisch von Spotify kommen, neuen Token dauerhaft speichern
-            if (currentHash && currentHash.includes("access_token")) {
-                let hashParts = currentHash.split('&');
-                for (let i = 0; i < hashParts.length; i++) {
-                    let pair = hashParts[i].split('=');
-                    if (pair[0] === 'access_token') {
-                        token = decodeURIComponent(pair[1]);
-                        localStorage.setItem('hitster_token', token); // WICHTIG: Für immer speichern!
-                        log("4. Neuer Token empfangen & gespeichert!");
-                    }
-                }
-                // Aufräumen der URL, nachdem wir sicher gespeichert haben
+            // Rohe Gewalt: Wir durchsuchen die komplette URL nach dem Token!
+            let fullUrl = window.location.href;
+            if (fullUrl.includes("access_token=")) {
+                log("-> Token in URL entdeckt! Fische ihn heraus...");
+                // Schneidet exakt den Token-Text aus der Adresse
+                let tokenPart = fullUrl.split("access_token=")[1];
+                token = tokenPart.split("&")[0]; // Schneidet alles nach dem Token ab
+                
+                localStorage.setItem('hitster_token', token);
+                log("3. Token gefischt und gespeichert!");
+                
+                // URL wieder hübsch machen (ohne die Seite neu zu laden)
                 window.history.replaceState(null, null, window.location.pathname + window.location.search);
+            } else if (fullUrl.includes("error=")) {
+                log("🚨 Spotify hat einen Fehler zurückgemeldet: " + fullUrl.split("error=")[1]);
             } else if (token) {
-                log("4. Gespeicherter Token geladen!");
+                log("3. Token aus Speicher geladen.");
             }
 
+            // Entscheidung: Login oder Play?
             if (!token) {
-                log("5. Kein Token. Zeige Login-Button...");
+                log("4. Kein Token da. Zeige Login-Button.");
                 const scopes = 'user-modify-playback-state user-read-playback-state';
                 const fullAuthUrl = AUTH_URL + "?client_id=" + CLIENT_ID + "&response_type=token&redirect_uri=" + encodeURIComponent(redirectUri) + "&scope=" + encodeURIComponent(scopes);
                 
@@ -89,18 +88,18 @@
                 loginBtn.style.display = "inline-block";
                 
                 loginBtn.onclick = function() {
-                    log("-> Leite weiter zu Spotify...");
+                    log("-> Ab zu Spotify...");
                     window.location.assign(fullAuthUrl);
                 };
             } else {
-                log("5. Eingeloggt! Bereit.");
+                log("4. Wir sind eingeloggt!");
                 document.getElementById('status').innerText = "Bereit für Hitster!";
                 let playBtn = document.getElementById('play-btn');
                 playBtn.style.display = "inline-block";
                 
                 playBtn.onclick = function() {
                     log("-> PLAY geklickt.");
-                    if(!trackId) return alert("Fehler: Keine Song-ID gefunden!");
+                    if(!trackId) return alert("Fehler: Keine Song-ID gefunden. Bitte einen QR-Code scannen!");
                     
                     document.getElementById('status').innerText = "Starte Wiedergabe...";
                     playBtn.style.display = "none";
@@ -113,9 +112,8 @@
                             'Authorization': 'Bearer ' + token
                         },
                     }).then(response => {
-                        // Falls der Token irgendwann (nach 1 Stunde) abläuft, Login neu anfordern
                         if (response.status === 401) {
-                            log("Token abgelaufen! Bitte neu einloggen.");
+                            log("Token abgelaufen. Lösche Speicher...");
                             localStorage.removeItem('hitster_token');
                             location.reload();
                             return;
