@@ -5,31 +5,28 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <style>
         body { background-color: #121212; color: white; font-family: sans-serif; text-align: center; padding: 20px; margin: 0; }
-        
-        /* Basis-Styling für alle Buttons */
-        .btn { border: none; padding: 18px 10px; font-size: 16px; font-weight: bold; border-radius: 20px; cursor: pointer; margin: 8px 4px; transition: transform 0.1s; text-transform: uppercase; color: white; box-sizing: border-box; display: none; }
+        .btn { border: none; padding: 18px 10px; font-size: 16px; font-weight: bold; border-radius: 25px; cursor: pointer; margin: 8px 4px; transition: transform 0.1s; text-transform: uppercase; color: white; box-sizing: border-box; display: none; }
         .btn-large { width: 92%; max-width: 300px; padding: 20px; font-size: 18px; display: none; }
         .btn:active { transform: scale(0.95); }
         
-        /* Spezifisches Button-Design nach Wunsch */
-        .btn-play { background-color: #1ed760 !important; color: white !important; width: 92%; max-width: 300px; }
-        .btn-pause { background-color: #ff4444 !important; color: white !important; width: 92%; max-width: 300px; }
+        .btn-play { background-color: #1ed760 !important; width: 92%; max-width: 300px; }
+        .btn-pause { background-color: #ff4444 !important; width: 92%; max-width: 300px; }
         
         #restart-btn { background-color: #555; width: 92%; max-width: 300px; }
         #reveal-btn { background-color: transparent; border: 2px solid #1ed760; color: #1ed760; width: 92%; max-width: 300px; margin-top: 20px; }
         
-        /* Lautstärke Schieberegler */
         .volume-container { width: 92%; max-width: 300px; margin: 25px auto; display: none; }
-        .slider { -webkit-appearance: none; width: 100%; height: 10px; border-radius: 5px; background: #333; outline: none; margin-top: 12px; }
-        .slider::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 22px; height: 22px; border-radius: 50%; background: #1ed760; cursor: pointer; border: 2px solid white; }
+        .slider { -webkit-appearance: none; width: 100%; height: 10px; border-radius: 5px; background: #333; outline: none; margin-top: 15px; }
+        .slider::-webkit-slider-thumb { -webkit-appearance: none; width: 24px; height: 24px; border-radius: 50%; background: #1ed760; cursor: pointer; border: 2px solid white; }
 
         #status { color: #1ed760; font-size: 16px; margin: 15px 0; font-weight: bold; min-height: 20px; }
         #info-container { display: none; margin-top: 10px; }
         #album-art { width: 250px; border-radius: 10px; margin: 10px 0; box-shadow: 0 10px 30px rgba(0,0,0,0.5); visibility: hidden; }
         
-        .player-controls { display: flex; flex-wrap: wrap; justify-content: center; margin-top: 10px; }
-        #debug { background-color: #ffffff; color: #000000; font-size: 11px; margin-top: 30px; text-align: left; padding: 10px; border: 2px solid #ff0000; border-radius: 5px; white-space: pre-wrap; word-break: break-all; font-family: monospace; display: block; }
-        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        /* Debug Pagination Styles */
+        #debug { background-color: #ffffff; color: #000000; font-size: 11px; margin-top: 30px; text-align: left; padding: 10px; border: 2px solid #ff0000; border-radius: 5px; font-family: monospace; display: block; }
+        .debug-nav { display: flex; justify-content: space-between; margin-top: 10px; border-top: 1px solid #ddd; padding-top: 5px; }
+        .nav-btn { background: #eee; border: 1px solid #ccc; padding: 2px 8px; cursor: pointer; font-size: 10px; border-radius: 3px; }
     </style>
 </head>
 <body>
@@ -47,7 +44,7 @@
             <img id="album-art" src="" />
         </div>
 
-        <div class="player-controls" id="controls" style="display:none;">
+        <div class="player-controls" id="controls">
             <button id="toggle-play" class="btn">PAUSE</button>
             <button id="restart-btn" class="btn">🔄 NEUSTART</button>
             
@@ -60,15 +57,41 @@
         </div>
     </div>
 
-    <div id="debug">System-Log:<br></div>
+    <div id="debug">
+        <div id="log-content" style="white-space: pre-wrap; word-break: break-all;">System-Log:<br></div>
+        <div class="debug-nav">
+            <button class="nav-btn" onclick="changePage(-1)">« Zurück</button>
+            <span id="page-info">Seite 1</span>
+            <button class="nav-btn" onclick="changePage(1)">Vor »</button>
+        </div>
+    </div>
 
     <script>
-        // --- EINSTELLUNG ---
-        const SHOW_DEBUG = true; // Auf 'false' setzen, um das Log zu verstecken
-        // -------------------
+        // Pagination Variablen
+        let allLogs = ["System initialisiert..."];
+        let currentPage = 0;
+        const pageSize = 10;
 
-        if (!SHOW_DEBUG) document.getElementById('debug').style.display = 'none';
-        function log(msg) { if (SHOW_DEBUG) document.getElementById('debug').innerHTML += msg + "<br>"; }
+        function log(msg) {
+            allLogs.push(msg);
+            currentPage = Math.floor((allLogs.length - 1) / pageSize);
+            renderLogs();
+            console.log(msg);
+        }
+
+        function renderLogs() {
+            const start = currentPage * pageSize;
+            const end = start + pageSize;
+            const displayLogs = allLogs.slice(start, end);
+            document.getElementById('log-content').innerText = "System-Log (Seite " + (currentPage + 1) + "):\n" + displayLogs.join("\n");
+            document.getElementById('page-info').innerText = "Seite " + (currentPage + 1) + " von " + Math.ceil(allLogs.length / pageSize);
+        }
+
+        function changePage(dir) {
+            const maxPage = Math.ceil(allLogs.length / pageSize) - 1;
+            currentPage = Math.max(0, Math.min(maxPage, currentPage + dir));
+            renderLogs();
+        }
 
         const CLIENT_ID = '6959567a76bc4366b778ec6a5b853a91'; 
         const AUTH_URL = atob("aHR0cHM6Ly9hY2NvdW50cy5zcG90aWZ5LmNvbS9hdXRob3JpemU=");
@@ -101,12 +124,15 @@
             document.getElementById('toggle-play').onclick = handleTogglePlay;
             document.getElementById('restart-btn').onclick = () => startSong();
             
-            // Lautstärke-Slider Logik
             document.getElementById('vol-slider').oninput = function() {
-                fetch(`${API_URL}/me/player/volume?volume_percent=${this.value}`, {
+                const vol = this.value;
+                fetch(`${API_URL}/me/player/volume?volume_percent=${vol}`, {
                     method: 'PUT',
                     headers: { 'Authorization': 'Bearer ' + token }
-                }).then(() => log("Volume: " + this.value + "%"));
+                }).then(res => {
+                    log("Volume Update: " + vol + "% (Status: " + res.status + ")");
+                    if (res.status === 403) log("Info: Lautstärkeregelung wird von deinem Gerät ggf. nicht unterstützt.");
+                });
             };
         }
 
@@ -128,10 +154,12 @@
             if (isPlaying) {
                 btn.innerText = "PAUSE";
                 btn.className = "btn btn-pause";
+                btn.style.display = "inline-block";
                 document.getElementById('status').innerText = "🎶 Musik läuft";
             } else {
                 btn.innerText = "PLAY";
                 btn.className = "btn btn-play";
+                btn.style.display = "inline-block";
                 document.getElementById('status').innerText = "⏸ Pausiert";
             }
         }
@@ -142,13 +170,12 @@
                 body: JSON.stringify({ uris: ["spotify:track:" + trackId] }),
                 headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
             }).then(res => {
+                log("Play Request Status: " + res.status);
                 if (res.ok || res.status === 204) {
                     isPlaying = true;
                     document.getElementById('main-play-btn').style.display = "none";
                     document.getElementById('info-container').style.display = "block";
-                    document.getElementById('controls').style.display = "flex";
                     document.getElementById('vol-ui').style.display = "block";
-                    document.getElementById('toggle-play').style.display = "inline-block";
                     document.getElementById('restart-btn').style.display = "inline-block";
                     document.getElementById('reveal-btn').style.display = "inline-block";
                     updatePlayButton();
@@ -173,6 +200,9 @@
                 document.getElementById('reveal-btn').style.display = "none";
             });
         }
+        
+        // Initialsierung des Logs
+        renderLogs();
     </script>
 </body>
 </html>
