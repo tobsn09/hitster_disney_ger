@@ -4,187 +4,123 @@
     <title>Disney Hitster Player</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <style>
-        body { 
-        background-color: #121212; 
-        /* Dynamische Hintergrund-Anpassung */
-        background-image: var(--bg-image);
-        background-size: contain;      /* ÄNDERUNG: Bild wird komplett eingepasst */
-        background-position: center;   /* Bild wird mittig zentriert */
-        background-repeat: no-repeat;  /* Verhindert Kachelung */
-        background-attachment: fixed;  /* Bild fixiert beim Scrollen */
-        
-        color: white; 
-        font-family: sans-serif; 
-        text-align: center; 
-        padding: 20px; 
-        margin: 0; 
-        min-height: 100vh;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
+        body {
+            background-color: #121212;
+            background-image: var(--bg-image);
+            background-size: contain; background-position: center; background-repeat: no-repeat; background-attachment: fixed;
+            color: white; font-family: sans-serif; text-align: center; padding: 20px; margin: 0;
+            min-height: 100vh; display: flex; flex-direction: column; align-items: center;
         }
-        
-        .overlay {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0, 0, 0, 0.6); z-index: -1;
-        }
-
-        /* Container für besseres Layout auf Mobile */
-        .content-wrapper {
-            width: 100%;
-            max-width: 500px;
-            z-index: 1;
-        }
-
-        .btn { border: none; padding: 18px 10px; font-size: 16px; font-weight: bold; border-radius: 20px; cursor: pointer; margin: 8px 4px; transition: transform 0.1s; text-transform: uppercase; color: white; box-sizing: border-box; text-decoration: none; display: inline-block; }
-        .btn-large { width: 92%; max-width: 300px; padding: 20px; font-size: 18px; display: none; }
-        .btn:active { transform: scale(0.95); }
-        
+        .overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.6); z-index: -1; }
+        .content-wrapper { width: 100%; max-width: 500px; z-index: 1; }
+        .btn { border: none; padding: 18px 10px; font-size: 16px; font-weight: bold; border-radius: 20px; cursor: pointer; margin: 8px 4px; transition: transform 0.1s; text-transform: uppercase; color: white; box-sizing: border-box; text-decoration: none; display: inline-block; width: 92%; max-width: 300px; }
+        .btn-large { padding: 20px; font-size: 18px; display: none; }
         .btn-play { background-color: var(--primary-color) !important; }
         .btn-pause { background-color: var(--secondary-color) !important; }
-        #restart-btn { background-color: #555; width: 92%; max-width: 300px; display: none; }
-        
+        #restart-btn { background-color: #555; display: none; }
         #status { color: var(--primary-color); font-size: 16px; margin: 15px 0; font-weight: bold; min-height: 20px; }
-        
-        #debug { background-color: rgba(255, 255, 255, 0.9); color: #000; font-size: 11px; margin-top: 30px; text-align: left; padding: 10px; border: 2px solid var(--secondary-color); border-radius: 5px; font-family: monospace; position: relative; height: 185px; overflow: hidden; display: none; width: 92%; max-width: 400px; }
-        #log-content { height: 140px; white-space: pre-wrap; word-break: break-all; overflow: hidden; }
-        .debug-nav { display: flex; justify-content: space-between; align-items: center; position: absolute; bottom: 5px; left: 10px; right: 10px; border-top: 1px solid #ddd; padding-top: 5px; }
-        .nav-btn { background: #eee; border: 1px solid #ccc; padding: 4px 10px; cursor: pointer; font-size: 10px; border-radius: 5px; color: #333; font-weight: bold; }
+        #debug { background-color: rgba(255, 255, 255, 0.9); color: #000; font-size: 11px; margin-top: 30px; text-align: left; padding: 10px; border-radius: 5px; width: 92%; max-width: 400px; height: 150px; overflow-y: auto; display: none; }
     </style>
 </head>
 <body>
-    <div class="overlay"></div>
-    
-    <div class="content-wrapper">
-        <h3 id="app-title" style="margin-top: 10px; color: #aaa;">Player</h3>
-        <div id="status">Initialisierung...</div>
-        
-        <a id="login-link" class="btn btn-large btn-play" style="display: none;">Mit Spotify verbinden</a>
-        
-        <div id="game-ui">
-            <button id="main-play-btn" class="btn btn-large btn-play" style="display: none;">▶ SONG STARTEN</button>
-            <div class="player-controls">
-                <button id="toggle-play" class="btn btn-large" style="display: none;">PAUSE</button>
-                <button id="restart-btn" class="btn">🔄 NEUSTART</button>
-            </div>
-        </div>
-
-        <div id="debug">
-            <div id="log-content">System-Start...</div>
-            <div class="debug-nav">
-                <button class="nav-btn" onclick="changePage(-1)">« ZURÜCK</button>
-                <span id="page-info">S.1 / 1</span>
-                <button class="nav-btn" onclick="changePage(1)">VOR »</button>
-            </div>
+<div class="overlay"></div>
+<div class="content-wrapper">
+    <h3 id="app-title" style="margin-top: 10px; color: #aaa;">Player</h3>
+    <div id="status">Initialisierung...</div>
+    <a id="login-link" class="btn btn-large btn-play" style="display: none;">Mit Spotify verbinden</a>
+    <div id="game-ui">
+        <button id="main-play-btn" class="btn btn-large btn-play" style="display: none;">▶ SONG STARTEN</button>
+        <div class="player-controls" style="display: flex; flex-direction: column; align-items: center;">
+            <button id="toggle-play" class="btn btn-large" style="display: none;">PAUSE</button>
+            <button id="restart-btn" class="btn">🔄 RESET & LOGIN</button>
+            <button id="native-scan-btn" class="btn btn-large" style="display: none; background-color: #333 !important; margin-top: 15px;">📸 KARTE SCANNEN</button>
         </div>
     </div>
+    <div id="debug"><div id="log-content">System bereit.</div></div>
+</div>
+<script>
+    /************************************************************
+     * KONFIGURATION
+     ************************************************************/
+    const CONFIG = {
+        title: "Disney Hitster Player",
+        backgroundImage: "url('disney-logo-hintergrund.jpg')",
+        showSystemLog: false, // Hier true/false für den weißen Kasten
+        primaryColor: "#1ed760",
+        secondaryColor: "#ff4444",
+        clientId: '6959567a76bc4366b778ec6a5b853a91',
+        redirectUri: "https://tobsn09.github.io/hitster_disney_ger/"
+    };
+    /************************************************************/
 
-    <script>
-        /************************************************************
-         * KONFIGURATION - HIER ALLE ÄNDERUNGEN VORNEHMEN
-         ************************************************************/
-        const CONFIG = {
-            title: "Disney Hitster Player",
-            
-            // HINTERGRUNDBILD VOM PC:
-            backgroundImage: "url('background.jpg')", 
-            
-            // VISUELLER LOG-SCHALTER
-            showSystemLog: true,
-            
-            // FARBEN & DESIGN
-            primaryColor: "#1ed760",   
-            secondaryColor: "#ff4444", 
-            
-            // SPOTIFY DATEN
-            clientId: '6959567a76bc4366b778ec6a5b853a91',
-            redirectUri: "https://tobsn09.github.io/hitster_disney_ger/",
-            
-            pageSize: 10  
-        };
-        /************************************************************
-         * ENDE DER KONFIGURATION
-         ************************************************************/
+    document.getElementById('app-title').innerText = CONFIG.title;
+    document.documentElement.style.setProperty('--bg-image', CONFIG.backgroundImage);
+    document.documentElement.style.setProperty('--primary-color', CONFIG.primaryColor);
+    document.documentElement.style.setProperty('--secondary-color', CONFIG.secondaryColor);
+    if (CONFIG.showSystemLog) document.getElementById('debug').style.display = 'block';
 
-        document.getElementById('app-title').innerText = CONFIG.title;
-        document.documentElement.style.setProperty('--bg-image', CONFIG.backgroundImage);
-        document.documentElement.style.setProperty('--primary-color', CONFIG.primaryColor);
-        document.documentElement.style.setProperty('--secondary-color', CONFIG.secondaryColor);
-        
-        if (CONFIG.showSystemLog) {
-            document.getElementById('debug').style.display = 'block';
-        }
+    const AUTH_URL = atob("aHR0cHM6Ly9hY2NvdW50cy5zcG90aWZ5LmNvbS9hdXRob3JpemU=");
+    const API_URL = atob("aHR0cHM6Ly9hcGkuc3BvdGlmeS5jb20vdjE=");
 
-        let allLogs = ["System bereit."];
-        let currentPage = 0;
-        function log(msg) { 
-            allLogs.push(msg); 
-            currentPage = Math.floor((allLogs.length - 1) / CONFIG.pageSize); 
-            renderLogs(); 
-        }
-        function renderLogs() {
-            const start = currentPage * CONFIG.pageSize;
-            const displayLogs = allLogs.slice(start, start + CONFIG.pageSize);
-            document.getElementById('log-content').innerText = displayLogs.join("\n");
-            document.getElementById('page-info').innerText = "S." + (currentPage + 1) + " / " + Math.ceil(allLogs.length / CONFIG.pageSize);
-        }
-        function changePage(dir) { 
-            currentPage = Math.max(0, Math.min(Math.ceil(allLogs.length / CONFIG.pageSize) - 1, currentPage + dir)); 
-            renderLogs(); 
-        }
+    let isPlaying = false;
+    let token = localStorage.getItem('hitster_token');
+    const params = new URLSearchParams(window.location.search);
+    let trackId = params.get('track') || localStorage.getItem('hitster_track');
 
-        const AUTH_URL = atob("aHR0cHM6Ly9hY2NvdW50cy5zcG90aWZ5LmNvbS9hdXRob3JpemU=");
-        const API_URL = atob("aHR0cHM6Ly9hcGkuc3BvdGlmeS5jb20vdjE=");
+    function log(m) { if(CONFIG.showSystemLog) document.getElementById('log-content').innerText += "\n" + m; }
 
-        let isPlaying = false;
-        let token = localStorage.getItem('hitster_token');
-        const params = new URLSearchParams(window.location.search);
-        let trackId = params.get('track') || localStorage.getItem('hitster_track');
+    if (params.get('track')) {
+        trackId = params.get('track').split('&')[0].replace(/[^a-zA-Z0-9]/g, '');
+        localStorage.setItem('hitster_track', trackId);
+    }
+    if (window.location.hash.includes("access_token")) {
+        token = new URLSearchParams(window.location.hash.substring(1)).get('access_token');
+        localStorage.setItem('hitster_token', token);
+        window.history.replaceState(null, null, window.location.pathname);
+    }
 
-        if (params.get('track')) {
-            trackId = params.get('track').split('&')[0].split('?')[0].replace(/[^a-zA-Z0-9]/g, '');
-            localStorage.setItem('hitster_track', trackId);
-        }
+    if (!token) {
+        const loginLink = document.getElementById('login-link');
+        const scopes = encodeURIComponent('user-modify-playback-state user-read-playback-state');
+        loginLink.href = `${AUTH_URL}?client_id=${CONFIG.clientId}&response_type=token&redirect_uri=${encodeURIComponent(CONFIG.redirectUri)}&scope=${scopes}`;
+        loginLink.style.display = "inline-block";
+    } else {
+        document.getElementById('status').innerText = "Bereit!";
+        document.getElementById('main-play-btn').style.display = "block";
+        document.getElementById('main-play-btn').onclick = startSong;
+        document.getElementById('toggle-play').onclick = handleTogglePlay;
+        document.getElementById('restart-btn').style.display = "inline-block";
+        document.getElementById('restart-btn').onclick = () => { localStorage.clear(); location.href = CONFIG.redirectUri; };
+        function initB() { if(window.AndroidBridge){ const b=document.getElementById('native-scan-btn'); b.style.display="block"; b.onclick=()=>window.AndroidBridge.startScanner(); }else{setTimeout(initB,500);}}
+        initB();
+    }
 
-        if (window.location.hash.includes("access_token")) {
-            token = new URLSearchParams(window.location.hash.substring(1)).get('access_token');
-            localStorage.setItem('hitster_token', token);
-            window.history.replaceState(null, null, window.location.pathname + window.location.search);
-        }
-
-        if (!token) {
-            const loginLink = document.getElementById('login-link');
-            const scopes = encodeURIComponent('user-modify-playback-state user-read-playback-state');
-            loginLink.href = `${AUTH_URL}?client_id=${CONFIG.clientId}&response_type=token&redirect_uri=${encodeURIComponent(CONFIG.redirectUri)}&scope=${scopes}`;
-            loginLink.style.display = "inline-block";
-        } else {
-            document.getElementById('status').innerText = "Bereit!";
-            document.getElementById('main-play-btn').style.display = "block";
-            document.getElementById('main-play-btn').onclick = startSong;
-            document.getElementById('toggle-play').onclick = handleTogglePlay;
-            document.getElementById('restart-btn').onclick = startSong;
-        }
-
-        function handleTogglePlay() {
-            const action = isPlaying ? "pause" : "play";
-            fetch(`${API_URL}/me/player/${action}`, {
-                method: 'PUT',
-                headers: { 'Authorization': 'Bearer ' + token }
-            }).then(res => {
-                if(res.status === 401) { localStorage.removeItem('hitster_token'); location.reload(); }
-                if(res.ok || res.status === 204) {
-                    isPlaying = !isPlaying;
-                    updateUI();
-                }
+    async function startSong() {
+        if (!trackId || !token) return;
+        try {
+            const dRes = await fetch(`${API_URL}/me/player/devices`, { headers: { 'Authorization': 'Bearer ' + token } });
+            const dData = await dRes.json();
+            const dev = dData.devices.find(d => d.is_active) || dData.devices[0];
+            if (!dev) { document.getElementById('status').innerText = "Spotify App öffnen!"; return; }
+            await fetch(`${API_URL}/me/player/play?device_id=${dev.id}`, {
+                method: 'PUT', body: JSON.stringify({ uris: [`spotify:track:${trackId}`] }),
+                headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' }
             });
-        }
+            isPlaying = true; updateUI();
+        } catch (e) { document.getElementById('status').innerText = "Fehler!"; }
+    }
 
-        function updateUI() {
-            const btn = document.getElementById('toggle-play');
-            btn.innerText = isPlaying ? "PAUSE" : "PLAY";
-            btn.className = isPlaying ? "btn btn-large btn-pause" : "btn btn-large btn-play";
-            btn.style.display = "inline-block";
-            document.getElementById('status').innerText = isPlaying ? "🎶 Musik läuft" : "⏸ Pausiert";
-        }
-
-        function startSong() {
+    function handleTogglePlay() {
+        fetch(`${API_URL}/me/player/${isPlaying ? 'pause' : 'play'}`, { method: 'PUT', headers: { 'Authorization': 'Bearer ' + token } })
+        .then(() => { isPlaying = !isPlaying; updateUI(); });
+    }
+    function updateUI() {
+        const b = document.getElementById('toggle-play');
+        b.innerText = isPlaying ? "PAUSE" : "PLAY";
+        b.className = isPlaying ? "btn btn-large btn-pause" : "btn btn-large btn-play";
+        b.style.display = "inline-block";
+        document.getElementById('status').innerText = isPlaying ? "🎶 Läuft" : "⏸ Pause";
+    }
+</script>
+</body>
+</html>

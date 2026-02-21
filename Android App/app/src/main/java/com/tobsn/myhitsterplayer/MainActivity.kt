@@ -3,44 +3,52 @@ package com.tobsn.myhitsterplayer
 import android.os.Bundle
 import android.view.WindowInsets
 import android.view.WindowInsetsController
-import android.webkit.WebSettings
-import android.webkit.WebView
-import android.webkit.WebViewClient
+import android.webkit.*
 import androidx.appcompat.app.AppCompatActivity
+import com.google.mlkit.vision.barcode.common.Barcode
+import com.google.mlkit.vision.codescanner.GmsBarcodeScannerOptions
+import com.google.mlkit.vision.codescanner.GmsBarcodeScanning
 
 class MainActivity : AppCompatActivity() {
+
+    private lateinit var myWebView: WebView
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        // --- STATUSLEISTE AUSBLENDEN (Full Screen) ---
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
-            window.setDecorFitsSystemWindows(false)
-            window.insetsController?.let {
-                it.hide(WindowInsets.Type.statusBars())
-                it.systemBarsBehavior = WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-            }
-        }
+        // Statusleiste ausblenden
+        window.setDecorFitsSystemWindows(false)
+        window.insetsController?.hide(WindowInsets.Type.statusBars())
 
-        // --- WEBVIEW KONFIGURIEREN ---
-        val myWebView: WebView = findViewById(R.id.webview)
-        val webSettings = myWebView.settings
+        myWebView = findViewById(R.id.webview)
+        setupWebView()
 
-        webSettings.javaScriptEnabled = true // Für Spotify Logik nötig
-        webSettings.domStorageEnabled = true // Für Token-Speicherung nötig
+        // Scanner-Schnittstelle registrieren
+        myWebView.addJavascriptInterface(WebAppInterface(), "AndroidBridge")
 
-        myWebView.webViewClient = WebViewClient()
-
-        // Deine GitHub-URL laden
-        // Prüfen, ob die App über einen Link (QR-Code) geöffnet wurde
         val intentUri = intent.data
-        if (intentUri != null) {
-            // Wenn ein Link geklickt wurde, lade diesen
-            myWebView.loadUrl(intentUri.toString())
-        } else {
-            // Standard-Startseite
-            myWebView.loadUrl("https://tobsn09.github.io/hitster_disney_ger/")
+        myWebView.loadUrl(intentUri?.toString() ?: "https://tobsn09.github.io/hitster_disney_ger/")
+    }
+
+    private fun setupWebView() {
+        val settings = myWebView.settings
+        settings.javaScriptEnabled = true
+        settings.domStorageEnabled = true
+        settings.mediaPlaybackRequiresUserGesture = false
+        myWebView.webViewClient = WebViewClient()
+    }
+
+    inner class WebAppInterface {
+        @JavascriptInterface
+        fun startScanner() {
+            val options = GmsBarcodeScannerOptions.Builder()
+                .setBarcodeFormats(Barcode.FORMAT_QR_CODE)
+                .build()
+            val scanner = GmsBarcodeScanning.getClient(this@MainActivity, options)
+            scanner.startScan().addOnSuccessListener { barcode ->
+                barcode.rawValue?.let { if (it.contains("github.io")) runOnUiThread { myWebView.loadUrl(it) } }
+            }
         }
     }
 }
