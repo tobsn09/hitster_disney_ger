@@ -14,15 +14,14 @@
         .btn-gray { background-color: #555 !important; }
         .btn-red { background-color: #881111 !important; }
         #status { color: #1ed760; font-size: 16px; margin: 10px 0; font-weight: bold; min-height: 24px; }
-        /* System Log Styling */
-        #debug { background-color: rgba(255, 255, 255, 0.95); color: #000; font-size: 10px; margin-top: 20px; text-align: left; padding: 10px; border-radius: 5px; width: 90%; max-width: 400px; height: 120px; overflow-y: auto; display: none; border: 2px solid red; }
+        #debug { background-color: rgba(255, 255, 255, 0.9); color: #000; font-size: 10px; margin-top: 20px; text-align: left; padding: 10px; border-radius: 5px; width: 90%; max-width: 400px; height: 100px; overflow-y: auto; display: block; }
     </style>
 </head>
 <body>
 <div class="overlay"></div>
 <div class="content-wrapper">
     <div class="logo-container"><img src="disney-logo-hintergrund.jpg" alt="Disney Logo"></div>
-    <div id="status">Diagnose läuft...</div>
+    <div id="status">Suche Verbindung...</div>
     <button id="login-btn" class="btn btn-play">MIT SPOTIFY VERBINDEN</button>
     <div id="game-ui" style="width: 100%; display: flex; flex-direction: column; align-items: center;">
         <button id="toggle-play" class="btn btn-play">▶ SONG STARTEN</button>
@@ -30,81 +29,83 @@
         <button id="native-scan-btn" class="btn btn-gray" style="margin-top: 30px;">📸 KARTE SCANNEN</button>
         <button id="reset-login-btn" class="btn btn-red" style="margin-top: 30px;">⚠️ RESET & LOGIN</button>
     </div>
-    <div id="debug"><div id="log-content">Log-Start...</div></div>
+    <div id="debug"><div id="log-content">System bereit.</div></div>
 </div>
 
 <script>
     const CONFIG = {
         clientId: '6959567a76bc4366b778ec6a5b853a91',
         redirectUri: "https://tobsn09.github.io/hitster_disney_ger/",
-        backgroundImage: "url('disney-logo-hintergrund.jpg')",
-        showSystemLog: true // AKTIVIERT FÜR FEHLERSUCHE
+        backgroundImage: "url('disney-logo-hintergrund.jpg')"
     };
 
-    function log(m) {
-        console.log(m);
-        if(CONFIG.showSystemLog) {
-            const debugDiv = document.getElementById('debug');
-            debugDiv.style.display = "block";
-            document.getElementById('log-content').innerHTML += "<br>> " + m;
-            debugDiv.scrollTop = debugDiv.scrollHeight;
-        }
-    }
-
+    function log(m) { document.getElementById('log-content').innerHTML += "<br>> " + m; }
     document.documentElement.style.setProperty('--bg-image', CONFIG.backgroundImage);
-    log("Seite geladen. Prüfe URL...");
 
-    let token = localStorage.getItem('hitster_token');
+    function checkToken() {
+        log("Prüfe URL auf Token...");
+        let t = localStorage.getItem('hitster_token');
 
-    // TOKEN AUS URL EXTRAHIEREN
-    if (window.location.hash.includes("access_token")) {
-        log("Token in URL gefunden! Verarbeite...");
-        const h = new URLSearchParams(window.location.hash.substring(1));
-        const t = h.get('access_token');
-        if (t) {
-            log("Token erfolgreich extrahiert.");
-            localStorage.setItem('hitster_token', t);
-            token = t;
-            // Wichtig: Hash entfernen ohne die Seite komplett zu killen
-            history.replaceState(null, null, window.location.pathname + window.location.search);
-            log("URL gesäubert.");
+        if (window.location.hash.includes("access_token")) {
+            log("Token in URL erkannt!");
+            const params = new URLSearchParams(window.location.hash.substring(1));
+            t = params.get('access_token');
+            if (t) {
+                localStorage.setItem('hitster_token', t);
+                log("Token gespeichert. Bereite Player vor...");
+                // Seite bereinigen und UI zeigen
+                window.location.hash = "";
+                location.reload();
+                return;
+            }
+        }
+
+        if (!t) {
+            log("Kein Token. Login nötig.");
+            document.getElementById('status').innerText = "Bitte einloggen";
+            document.getElementById('login-btn').style.display = "block";
+            document.getElementById('login-btn').onclick = () => {
+                const scope = encodeURIComponent('user-modify-playback-state user-read-playback-state');
+                window.location.href = `https://accounts.spotify.com/authorize?client_id=${CONFIG.clientId}&response_type=token&redirect_uri=${encodeURIComponent(CONFIG.redirectUri)}&scope=${scope}&show_dialog=true`;
+            };
+        } else {
+            log("Token validiert. Starte Player.");
+            document.getElementById('status').innerText = "Bereit!";
+            document.getElementById('login-btn').style.display = "none";
+            document.querySelectorAll('.btn').forEach(b => { if(b.id !== 'login-btn') b.style.display = "block"; });
+            setupButtons(t);
         }
     }
 
-    if (!token) {
-        log("Kein Token vorhanden. Zeige Login-Button.");
-        document.getElementById('status').innerText = "Bitte einloggen";
-        const btn = document.getElementById('login-btn');
-        btn.style.display = "block";
-        btn.onclick = function() {
-            const scope = encodeURIComponent('user-modify-playback-state user-read-playback-state');
-            const url = `https://accounts.spotify.com/authorize?client_id=${CONFIG.clientId}&response_type=token&redirect_uri=${encodeURIComponent(CONFIG.redirectUri)}&scope=${scope}&show_dialog=true`;
-            log("Sende Login-Anfrage...");
-            window.location.href = url;
-        };
-    } else {
-        log("Token aktiv. Zeige Player-UI.");
-        document.getElementById('status').innerText = "Bereit!";
-        document.querySelectorAll('.btn').forEach(b => { if(b.id !== 'login-btn') b.style.display = "block"; });
-
-        document.getElementById('toggle-play').onclick = () => play(false);
-        document.getElementById('restart-btn').onclick = () => play(true);
-        document.getElementById('reset-login-btn').onclick = () => { log("Reset ausgelöst."); localStorage.clear(); location.href = CONFIG.redirectUri; };
-
-        function initB() {
-            if(window.AndroidBridge){
-                log("AndroidBridge gefunden.");
-                document.getElementById('native-scan-btn').onclick = () => window.AndroidBridge.startScanner();
-            } else { setTimeout(initB, 500); }
-        }
-        initB();
+    function setupButtons(token) {
+        document.getElementById('toggle-play').onclick = () => handleSpotify('pause', token);
+        document.getElementById('restart-btn').onclick = () => handleSpotify('play', token);
+        document.getElementById('reset-login-btn').onclick = () => { localStorage.clear(); location.href = CONFIG.redirectUri; };
+        if(window.AndroidBridge) document.getElementById('native-scan-btn').onclick = () => window.AndroidBridge.startScanner();
     }
 
-    async function play(restart) {
+    async function handleSpotify(action, token) {
         const track = new URLSearchParams(window.location.search).get('track') || localStorage.getItem('hitster_track');
-        log("Starte Song. Track: " + track);
-        // ... (Restliche Play-Logik wie gehabt)
+        try {
+            const res = await fetch("https://api.spotify.com/v1/me/player/devices", { headers: {'Authorization': 'Bearer ' + token} });
+            const d = await res.json();
+            const dev = d.devices.find(x => x.is_active) || d.devices[0];
+            if (!dev) { log("Kein Gerät aktiv!"); return; }
+
+            let url = `https://api.spotify.com/v1/me/player/${action}?device_id=${dev.id}`;
+            let body = action === 'play' ? JSON.stringify({ uris: [`spotify:track:${track}`] }) : null;
+
+            await fetch(url, {
+                method: 'PUT',
+                headers: {'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json'},
+                body: body
+            });
+            document.getElementById('status').innerText = action === 'play' ? "🎶 Läuft" : "⏸ Pause";
+        } catch (e) { log("API Fehler."); }
     }
+
+    // Sofort prüfen
+    checkToken();
 </script>
 </body>
 </html>
