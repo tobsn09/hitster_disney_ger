@@ -21,13 +21,14 @@
 
         #status { color: #1ed760; font-size: 16px; margin: 15px 0; font-weight: bold; min-height: 20px; }
         #info-container { display: none; margin-top: 10px; }
+        /* Geheimhaltung: Cover ist da, aber unsichtbar */
         #album-art { width: 250px; border-radius: 10px; margin: 10px 0; box-shadow: 0 10px 30px rgba(0,0,0,0.5); visibility: hidden; }
         
-        /* FIX: UI springt nicht mehr */
-        #debug { background-color: #ffffff; color: #000000; font-size: 11px; margin-top: 30px; text-align: left; padding: 10px; border: 2px solid #ff0000; border-radius: 5px; font-family: monospace; display: block; height: 180px; overflow: hidden; position: relative; }
-        #log-content { height: 130px; overflow: hidden; white-space: pre-wrap; word-break: break-all; }
+        /* Stabilisierung: Log-Bereich mit fester Höhe verhindert Hüpfen */
+        #debug { background-color: #ffffff; color: #000000; font-size: 11px; margin-top: 30px; text-align: left; padding: 10px; border: 2px solid #ff0000; border-radius: 5px; font-family: monospace; display: block; position: relative; height: 180px; overflow: hidden; }
+        #log-content { height: 135px; white-space: pre-wrap; word-break: break-all; overflow: hidden; }
         .debug-nav { display: flex; justify-content: space-between; align-items: center; position: absolute; bottom: 5px; left: 10px; right: 10px; border-top: 1px solid #ddd; padding-top: 5px; background: white; }
-        .nav-btn { background: #eee; border: 1px solid #ccc; padding: 4px 10px; cursor: pointer; font-size: 10px; border-radius: 5px; font-weight: bold; }
+        .nav-btn { background: #eee; border: 1px solid #ccc; padding: 4px 10px; cursor: pointer; font-size: 10px; border-radius: 5px; color: #333; font-weight: bold; }
     </style>
 </head>
 <body>
@@ -59,17 +60,17 @@
     </div>
 
     <div id="debug">
-        <div id="log-content">Warte auf Initialisierung...</div>
+        <div id="log-content">Warte auf Aktion...</div>
         <div class="debug-nav">
             <button class="nav-btn" onclick="changePage(-1)">« ZURÜCK</button>
-            <span id="page-info">S.1 / 1</span>
+            <span id="page-info" style="font-size: 10px;">S.1 / 1</span>
             <button class="nav-btn" onclick="changePage(1)">VOR »</button>
         </div>
     </div>
 
     <script>
-        // Log-Pagination Setup
-        let allLogs = [];
+        // Log & Pagination Setup
+        let allLogs = ["System initialisiert..."];
         let currentPage = 0;
         const pageSize = 10;
 
@@ -93,7 +94,6 @@
             renderLogs();
         }
 
-        // Spotify API Setup
         const CLIENT_ID = '6959567a76bc4366b778ec6a5b853a91'; 
         const AUTH_URL = atob("aHR0cHM6Ly9hY2NvdW50cy5zcG90aWZ5LmNvbS9hdXRob3JpemU=");
         const API_URL = atob("aHR0cHM6Ly9hcGkuc3BvdGlmeS5jb20vdjE=");
@@ -101,37 +101,19 @@
 
         let isPlaying = false;
         let token = localStorage.getItem('hitster_token');
+        const params = new URLSearchParams(window.location.search);
+        let trackId = params.get('track') || localStorage.getItem('hitster_track');
         let volumeTimer = null;
 
-        // ID Reinigung
-        const params = new URLSearchParams(window.location.search);
-        let trackId = params.get('track');
-        if (trackId) {
-            trackId = trackId.split('&')[0].split('?')[0].replace(/[^a-zA-Z0-9]/g, '');
+        if (params.get('track')) {
+            trackId = params.get('track').split('&')[0].split('?')[0].replace(/[^a-zA-Z0-9]/g, '');
             localStorage.setItem('hitster_track', trackId);
-            log("ID erkannt: " + trackId);
-        } else {
-            trackId = localStorage.getItem('hitster_track');
-            log("Gespeicherte ID: " + trackId);
         }
 
-        // Token aus URL extrahieren
         if (window.location.hash.includes("access_token")) {
-            const hashParams = new URLSearchParams(window.location.hash.substring(1));
-            token = hashParams.get('access_token');
+            token = new URLSearchParams(window.location.hash.substring(1)).get('access_token');
             localStorage.setItem('hitster_token', token);
             window.history.replaceState(null, null, window.location.pathname + window.location.search);
-            log("Token erhalten!");
-        }
-
-        function handleApiError(res) {
-            if (res.status === 401) {
-                log("Fehler 401: Token abgelaufen!");
-                localStorage.removeItem('hitster_token');
-                location.reload();
-                return false;
-            }
-            return true;
         }
 
         if (!token) {
@@ -139,80 +121,75 @@
             document.getElementById('login-btn').onclick = () => {
                 log("Verbindung wird hergestellt...");
                 const scopes = 'user-modify-playback-state user-read-playback-state';
-                window.location.assign(AUTH_URL + "?client_id=" + CLIENT_ID + "&response_type=token&redirect_uri=" + encodeURIComponent(redirectUri) + "&scope=" + encodeURIComponent(scopes));
+                window.location.href = AUTH_URL + "?client_id=" + CLIENT_ID + "&response_type=token&redirect_uri=" + encodeURIComponent(redirectUri) + "&scope=" + encodeURIComponent(scopes);
             };
         } else {
             document.getElementById('status').innerText = "Bereit!";
             document.getElementById('main-play-btn').style.display = "block";
-            
             document.getElementById('main-play-btn').onclick = () => startSong();
-            document.getElementById('toggle-play').onclick = togglePlayback;
+            document.getElementById('toggle-play').onclick = handleTogglePlay;
             document.getElementById('restart-btn').onclick = () => startSong();
             
             document.getElementById('vol-slider').oninput = function() {
                 const vol = this.value;
                 if (volumeTimer) clearTimeout(volumeTimer);
                 volumeTimer = setTimeout(() => {
-                    fetch(API_URL + "/me/player/volume?volume_percent=" + vol, {
+                    fetch(`${API_URL}/me/player/volume?volume_percent=${vol}`, {
                         method: 'PUT',
                         headers: { 'Authorization': 'Bearer ' + token }
-                    }).then(res => {
-                        handleApiError(res);
-                        log("Volume: " + vol + "% (Status: " + res.status + ")");
-                    });
+                    }).then(res => log("Volume: " + vol + "% (Status: " + res.status + ")"));
                 }, 150);
             };
         }
 
-        function togglePlayback() {
+        function handleTogglePlay() {
             const action = isPlaying ? "pause" : "play";
-            fetch(API_URL + "/me/player/" + action, {
+            fetch(`${API_URL}/me/player/${action}`, {
                 method: 'PUT',
                 headers: { 'Authorization': 'Bearer ' + token }
             }).then(res => {
-                if(handleApiError(res) && (res.ok || res.status === 204)) {
+                if(res.status === 401) { localStorage.removeItem('hitster_token'); location.reload(); }
+                if(res.ok || res.status === 204) {
                     isPlaying = !isPlaying;
-                    updateUI();
+                    updatePlayButton();
                 }
             });
         }
 
-        function updateUI() {
+        function updatePlayButton() {
             const btn = document.getElementById('toggle-play');
             btn.innerText = isPlaying ? "PAUSE" : "PLAY";
             btn.className = isPlaying ? "btn btn-pause" : "btn btn-play";
-            document.getElementById('status').innerText = isPlaying ? "🎶 Läuft" : "⏸ Pausiert";
+            btn.style.display = "inline-block";
+            document.getElementById('status').innerText = isPlaying ? "🎶 Musik läuft" : "⏸ Pausiert";
         }
 
         function startSong() {
-            log("Sende Wiedergabe-Befehl...");
-            fetch(API_URL + "/me/player/play", {
+            log("Starte Song...");
+            fetch(`${API_URL}/me/player/play`, {
                 method: 'PUT',
                 body: JSON.stringify({ uris: ["spotify:track:" + trackId] }),
                 headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
             }).then(res => {
-                log("Antwort: " + res.status);
-                if (handleApiError(res) && (res.ok || res.status === 204)) {
+                if (res.status === 401) { localStorage.removeItem('hitster_token'); location.reload(); }
+                if (res.ok || res.status === 204) {
                     isPlaying = true;
                     document.getElementById('main-play-btn').style.display = "none";
                     document.getElementById('info-container').style.display = "block";
                     document.getElementById('vol-ui').style.display = "block";
                     document.getElementById('restart-btn').style.display = "inline-block";
                     document.getElementById('reveal-btn').style.display = "inline-block";
-                    updateUI();
-                    
-                    fetch(API_URL + "/tracks/" + trackId, { headers: {'Authorization': 'Bearer ' + token} })
-                    .then(r => r.json()).then(data => {
-                        document.getElementById('album-art').src = data.album.images[0].url;
-                    });
+                    updatePlayButton();
+                    fetch(`${API_URL}/tracks/${trackId}`, { headers: {'Authorization': 'Bearer ' + token} })
+                    .then(r => r.json()).then(data => document.getElementById('album-art').src = data.album.images[0].url);
                 } else {
-                    document.getElementById('status').innerText = "Spotify App am Handy aktiv?";
+                    document.getElementById('status').innerText = "Spotify App öffnen!";
                 }
             });
         }
 
         function reveal() {
-            fetch(API_URL + "/tracks/" + trackId, { headers: {'Authorization': 'Bearer ' + token} })
+            fetch(`${API_URL}/tracks/${trackId}`, { headers: {'Authorization': 'Bearer ' + token} })
             .then(res => res.json()).then(data => {
                 document.getElementById('track-name').innerText = data.name;
                 document.getElementById('artist-name').innerText = data.artists[0].name;
@@ -221,8 +198,7 @@
                 document.getElementById('reveal-btn').style.display = "none";
             });
         }
-
-        log("System initialisiert.");
+        renderLogs();
     </script>
 </body>
 </html>
