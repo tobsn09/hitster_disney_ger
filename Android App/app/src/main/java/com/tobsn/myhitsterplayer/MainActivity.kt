@@ -15,37 +15,29 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        // Fullscreen
         window.setDecorFitsSystemWindows(false)
         window.insetsController?.hide(WindowInsets.Type.statusBars())
 
         myWebView = findViewById(R.id.webview)
-        setupWebView()
-
-        myWebView.addJavascriptInterface(WebAppInterface(), "AndroidBridge")
-        myWebView.loadUrl("https://tobsn09.github.io/hitster_disney_ger/")
-    }
-
-    private fun setupWebView() {
         val settings = myWebView.settings
         settings.javaScriptEnabled = true
         settings.domStorageEnabled = true
-        settings.databaseEnabled = true
-        settings.setSupportMultipleWindows(true)
-        settings.javaScriptCanOpenWindowsAutomatically = true
-        settings.mediaPlaybackRequiresUserGesture = false
 
-        // S24 Ultra Chrome-Tarnung für stabilere Logins
+        // S24 Ultra Tarnung
         settings.userAgentString = "Mozilla/5.0 (Linux; Android 14; SM-S928B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Mobile Safari/537.36"
 
+        myWebView.addJavascriptInterface(WebAppInterface(), "AndroidBridge")
+
+        // WICHTIG: Erzwingt das Neuladen nach Redirects
         myWebView.webViewClient = object : WebViewClient() {
             override fun onPageFinished(view: WebView?, url: String?) {
                 super.onPageFinished(view, url)
-                // Sobald eine Seite fertig geladen ist (auch nach dem Redirect)
-                // triggern wir eine JS-Funktion zur Sicherheit
-                view?.evaluateJavascript("checkForToken();", null)
+                if (url != null && url.contains("#access_token")) {
+                    view?.evaluateJavascript("checkForToken();", null)
+                }
             }
         }
+        myWebView.loadUrl("https://tobsn09.github.io/hitster_disney_ger/")
     }
 
     inner class WebAppInterface {

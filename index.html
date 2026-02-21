@@ -9,74 +9,95 @@
         .content-wrapper { width: 100%; max-width: 500px; z-index: 1; display: flex; flex-direction: column; align-items: center; padding-top: 30px; }
         .logo-container { width: 90%; max-width: 300px; margin-bottom: 25px; }
         .logo-container img { width: 100%; height: auto; }
-        .btn { border: none; padding: 18px 0; font-size: 16px; font-weight: bold; border-radius: 20px; cursor: pointer; text-transform: uppercase; color: white; box-sizing: border-box; text-decoration: none; display: none; width: 90%; max-width: 320px; margin: 8px 0; }
+        .btn { border: none; padding: 18px 0; font-size: 16px; font-weight: bold; border-radius: 20px; cursor: pointer; transition: transform 0.1s; text-transform: uppercase; color: white; box-sizing: border-box; text-decoration: none; display: none; width: 90%; max-width: 320px; margin: 8px 0; }
         .btn-play { background-color: #1ed760 !important; }
         .btn-gray { background-color: #555 !important; }
         .btn-red { background-color: #881111 !important; }
         #status { color: #1ed760; font-size: 16px; margin: 10px 0; font-weight: bold; min-height: 24px; }
-        #debug { background-color: rgba(255, 255, 255, 0.9); color: #000; font-size: 10px; margin-top: 20px; text-align: left; padding: 10px; border-radius: 5px; width: 90%; max-width: 400px; height: 100px; overflow-y: auto; display: block; }
+        #debug { background-color: rgba(255, 255, 255, 0.95); color: #000; font-size: 10px; margin-top: 20px; text-align: left; padding: 10px; border-radius: 5px; width: 90%; max-width: 400px; height: 100px; overflow-y: auto; display: block; }
     </style>
 </head>
 <body>
 <div class="overlay"></div>
 <div class="content-wrapper">
     <div class="logo-container"><img src="disney-logo-hintergrund.jpg" alt="Disney Logo"></div>
-    <div id="status">Suche Verbindung...</div>
-    <button id="login-btn" class="btn btn-play">MIT SPOTIFY VERBINDEN</button>
+    <div id="status">System bereit</div>
+
+    <button id="login-btn" class="btn btn-play" style="display: block;">MIT SPOTIFY VERBINDEN</button>
+
     <div id="game-ui" style="width: 100%; display: flex; flex-direction: column; align-items: center;">
         <button id="toggle-play" class="btn btn-play">▶ SONG STARTEN</button>
         <button id="restart-btn" class="btn btn-gray">🔄 NEUSTART</button>
         <button id="native-scan-btn" class="btn btn-gray" style="margin-top: 30px;">📸 KARTE SCANNEN</button>
         <button id="reset-login-btn" class="btn btn-red" style="margin-top: 30px;">⚠️ RESET & LOGIN</button>
     </div>
-    <div id="debug"><div id="log-content">System bereit.</div></div>
+    <div id="debug"><div id="log-content">Suche nach Verbindung...</div></div>
 </div>
-
 <script>
-    // ... dein CONFIG Bereich ...
+    const CONFIG = {
+        clientId: '6959567a76bc4366b778ec6a5b853a91',
+        redirectUri: "https://tobsn09.github.io/hitster_disney_ger/",
+        backgroundImage: "url('disney-logo-hintergrund.jpg')"
+    };
 
     function log(m) { document.getElementById('log-content').innerHTML += "<br>> " + m; }
+    document.documentElement.style.setProperty('--bg-image', CONFIG.backgroundImage);
 
     function checkForToken() {
+        let t = localStorage.getItem('hitster_token');
         const hash = window.location.hash;
+
         if (hash.includes("access_token")) {
-            log("TOKEN GEFUNDEN! Verarbeite...");
+            log("Token in URL gefunden!");
             const params = new URLSearchParams(hash.substring(1));
-            const token = params.get('access_token');
-            if (token) {
-                localStorage.setItem('hitster_token', token);
-                log("Token gespeichert. Lade Player...");
-                // WICHTIG: Harter Reload ohne Hash, um die UI zu erzwingen
-                window.location.href = CONFIG.redirectUri;
+            t = params.get('access_token');
+            if (t) {
+                localStorage.setItem('hitster_token', t);
+                window.location.hash = "";
+                location.href = CONFIG.redirectUri; // Harter Reload für sauberes UI
+                return;
             }
         }
-    }
 
-    // Prüfe sofort beim Start
-    checkForToken();
-
-    // Falls die WebView nicht neu lädt: Prüfe alle 500ms aktiv nach
-    const tokenWatcher = setInterval(() => {
-        if (localStorage.getItem('hitster_token')) {
-            clearInterval(tokenWatcher);
-            initPlayer();
-        } else {
-            checkForToken();
-        }
-    }, 500);
-
-    function initPlayer() {
-        const token = localStorage.getItem('hitster_token');
-        if (token) {
-            log("Player-Modus aktiv.");
+        if (t) {
+            log("Token aktiv. Starte Player.");
             document.getElementById('status').innerText = "Bereit!";
             document.getElementById('login-btn').style.display = "none";
-            document.querySelectorAll('.btn').forEach(b => {
-                if(b.id !== 'login-btn') b.style.display = "block";
-            });
-            // Hier deine Play-Logik...
+            document.querySelectorAll('.btn').forEach(b => { if(b.id !== 'login-btn') b.style.display = "block"; });
+            setupLogic(t);
+        } else {
+            log("Kein Token. Bitte einloggen.");
+            document.getElementById('login-btn').onclick = () => {
+                const scope = encodeURIComponent('user-modify-playback-state user-read-playback-state');
+                window.location.href = `https://accounts.spotify.com/authorize?client_id=${CONFIG.clientId}&response_type=token&redirect_uri=${encodeURIComponent(CONFIG.redirectUri)}&scope=${scope}&show_dialog=true`;
+            };
         }
     }
+
+    function setupLogic(token) {
+        document.getElementById('toggle-play').onclick = () => handleSpotify('pause', token);
+        document.getElementById('restart-btn').onclick = () => handleSpotify('play', token);
+        document.getElementById('reset-login-btn').onclick = () => { localStorage.clear(); location.href = CONFIG.redirectUri; };
+        if(window.AndroidBridge) document.getElementById('native-scan-btn').onclick = () => window.AndroidBridge.startScanner();
+    }
+
+    async function handleSpotify(action, token) {
+        const track = new URLSearchParams(window.location.search).get('track') || localStorage.getItem('hitster_track');
+        try {
+            const res = await fetch("https://api.spotify.com/v1/me/player/devices", { headers: {'Authorization': 'Bearer ' + token} });
+            const d = await res.json();
+            const dev = d.devices.find(x => x.is_active) || d.devices[0];
+            if (!dev) { alert("Bitte Spotify App öffnen!"); return; }
+            await fetch(`https://api.spotify.com/v1/me/player/${action}?device_id=${dev.id}`, {
+                method: 'PUT',
+                headers: {'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json'},
+                body: action === 'play' ? JSON.stringify({ uris: [`spotify:track:${track}`] }) : null
+            });
+            document.getElementById('status').innerText = action === 'play' ? "🎶 Läuft" : "⏸ Pause";
+        } catch (e) { log("API Fehler."); }
+    }
+
+    checkForToken();
 </script>
 </body>
 </html>
